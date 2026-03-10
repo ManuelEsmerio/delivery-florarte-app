@@ -38,9 +38,9 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
       return { error: 'Credenciales inválidas.' };
     }
 
-    // Validar que el usuario tenga rol de repartidor o admin
-    if (user.role !== 'DELIVERY' && user.role !== 'ADMIN') {
-      return { error: 'Acceso denegado. Esta aplicación es exclusiva para personal de logística.' };
+    // Validar que el usuario tenga estrictamente el rol de repartidor
+    if (user.role !== 'DELIVERY') {
+      return { error: 'Acceso denegado. Esta aplicación es exclusiva para repartidores.' };
     }
 
     // Establecer una cookie de sesión simple para el prototipo
