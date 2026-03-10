@@ -12,7 +12,8 @@ import {
   Package, 
   StickyNote, 
   Navigation,
-  CheckCircle2
+  CheckCircle2,
+  User
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -22,7 +23,7 @@ export default function OrderDetailPage() {
   const router = useRouter();
   const order = MOCK_ORDERS.find(o => o.id === id);
 
-  if (!order) return <div className="p-10 text-center">Order not found.</div>;
+  if (!order) return <div className="p-10 text-center">Pedido no encontrado.</div>;
 
   return (
     <div className="flex flex-col min-h-screen animate-in fade-in slide-in-from-right-4 duration-300">
@@ -42,7 +43,7 @@ export default function OrderDetailPage() {
         <div className="h-48 bg-slate-300 relative overflow-hidden">
           <img 
             src={`https://picsum.photos/seed/${order.id}/800/400`} 
-            alt="Map view" 
+            alt="Vista del mapa" 
             className="w-full h-full object-cover opacity-60 grayscale-[0.5] transition-transform duration-700 hover:scale-105"
             data-ai-hint="map view"
           />
@@ -54,17 +55,37 @@ export default function OrderDetailPage() {
           <div className="absolute bottom-4 right-4">
             <Button size="sm" className="bg-white text-primary hover:bg-white shadow-md rounded-full px-4 h-10 transition-transform active:scale-90">
               <Navigation className="w-4 h-4 mr-2" />
-              Open GPS
+              Abrir GPS
             </Button>
           </div>
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Customer Info */}
+          {/* Remitente Info */}
           <section className="bg-white p-5 rounded-2xl shadow-sm space-y-4 animate-in slide-in-from-bottom-4 duration-500 delay-100">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Recipient</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Remitente</p>
+                <h3 className="text-xl font-bold">{order.senderName}</h3>
+              </div>
+              <Button variant="secondary" size="icon" className="rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">
+                <Phone className="w-5 h-5" />
+              </Button>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                <User className="w-5 h-5 text-slate-400 shrink-0" />
+                <p className="text-sm font-medium">{order.senderPhone}</p>
+              </div>
+            </div>
+          </section>
+
+          {/* Destinatario Info */}
+          <section className="bg-white p-5 rounded-2xl shadow-sm space-y-4 animate-in slide-in-from-bottom-4 duration-500 delay-150">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Destinatario</p>
                 <h3 className="text-xl font-bold">{order.customerName}</h3>
               </div>
               <Button variant="secondary" size="icon" className="rounded-full bg-accent/20 text-accent-foreground hover:bg-accent/30 transition-all">
@@ -84,7 +105,7 @@ export default function OrderDetailPage() {
           <section className="bg-white p-5 rounded-2xl shadow-sm animate-in slide-in-from-bottom-4 duration-500 delay-200">
             <div className="flex items-center gap-2 mb-4">
               <Package className="w-5 h-5 text-primary" />
-              <h3 className="font-bold">Order Items</h3>
+              <h3 className="font-bold">Artículos del Pedido</h3>
             </div>
             <div className="space-y-4">
               {order.items.map((item, i) => (
@@ -118,7 +139,7 @@ export default function OrderDetailPage() {
             <section className="bg-blue-50/50 border border-blue-100 p-5 rounded-2xl animate-in slide-in-from-bottom-4 duration-500 delay-300">
               <div className="flex items-center gap-2 mb-2">
                 <StickyNote className="w-5 h-5 text-primary" />
-                <h3 className="font-bold text-primary">Driver Notes</h3>
+                <h3 className="font-bold text-primary">Notas del Repartidor</h3>
               </div>
               <p className="text-sm text-blue-900 leading-relaxed italic">
                 "{order.deliveryNotes}"
@@ -133,9 +154,9 @@ export default function OrderDetailPage() {
         {order.status === 'assigned' && (
           <Button 
             className="w-full btn-large bg-primary shadow-lg hover:shadow-xl transition-all"
-            onClick={() => router.push(`/dashboard`)} // Simulating status change
+            onClick={() => router.push(`/dashboard`)}
           >
-            Start Route
+            Iniciar Ruta
           </Button>
         )}
         {(order.status === 'in_route' || order.status === 'assigned') && (
@@ -145,14 +166,14 @@ export default function OrderDetailPage() {
           >
             <Link href={`/orders/${order.id}/deliver`}>
               <CheckCircle2 className="w-5 h-5 mr-2" />
-              Complete Delivery
+              Completar Entrega
             </Link>
           </Button>
         )}
         {order.status === 'delivered' && (
           <div className="bg-green-100 text-green-700 p-4 rounded-xl text-center font-bold flex items-center justify-center animate-in zoom-in duration-300">
             <CheckCircle2 className="w-5 h-5 mr-2" />
-            Order Completed
+            Pedido Completado
           </div>
         )}
       </div>

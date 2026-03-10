@@ -20,6 +20,8 @@ export interface Order {
   deliveryNotes?: string;
   lat: number;
   lng: number;
+  senderName: string;
+  senderPhone: string;
 }
 
 export const MOCK_ORDERS: Order[] = [
@@ -33,12 +35,14 @@ export const MOCK_ORDERS: Order[] = [
     deliveryTime: '02:00 PM - 04:00 PM',
     status: 'assigned',
     items: [
-      { name: 'Wireless Headphones', quantity: 1, imageUrl: 'https://picsum.photos/seed/headphones/200/200' },
-      { name: 'USB-C Cable', quantity: 2, imageUrl: 'https://picsum.photos/seed/cable/200/200' }
+      { name: 'Auriculares Inalámbricos', quantity: 1, imageUrl: 'https://picsum.photos/seed/headphones/200/200' },
+      { name: 'Cable USB-C', quantity: 2, imageUrl: 'https://picsum.photos/seed/cable/200/200' }
     ],
-    deliveryNotes: 'Please leave at the front desk.',
+    deliveryNotes: 'Por favor, dejar en la recepción.',
     lat: 37.7749,
-    lng: -122.4194
+    lng: -122.4194,
+    senderName: 'Tech Store Central',
+    senderPhone: '+1 (555) 000-9999'
   },
   {
     id: '2',
@@ -50,10 +54,12 @@ export const MOCK_ORDERS: Order[] = [
     deliveryTime: '04:00 PM - 06:00 PM',
     status: 'in_route',
     items: [
-      { name: 'Mechanical Keyboard', quantity: 1, imageUrl: 'https://picsum.photos/seed/keyboard/200/200' }
+      { name: 'Teclado Mecánico', quantity: 1, imageUrl: 'https://picsum.photos/seed/keyboard/200/200' }
     ],
     lat: 37.8044,
-    lng: -122.2711
+    lng: -122.2711,
+    senderName: 'Logistics Hub North',
+    senderPhone: '+1 (555) 888-7777'
   },
   {
     id: '3',
@@ -65,10 +71,12 @@ export const MOCK_ORDERS: Order[] = [
     deliveryTime: '01:00 PM - 03:00 PM',
     status: 'delivered',
     items: [
-      { name: 'Gaming Mouse', quantity: 1, imageUrl: 'https://picsum.photos/seed/mouse/200/200' },
+      { name: 'Mouse Gamer', quantity: 1, imageUrl: 'https://picsum.photos/seed/mouse/200/200' },
       { name: 'Mouse Pad', quantity: 1, imageUrl: 'https://picsum.photos/seed/mousepad/200/200' }
     ],
     lat: 37.8715,
-    lng: -122.2730
+    lng: -122.2730,
+    senderName: 'Gaming World Express',
+    senderPhone: '+1 (555) 444-3333'
   }
 ];

@@ -1,3 +1,4 @@
+
 import { Badge } from "@/components/ui/badge";
 import { OrderStatus } from "@/app/lib/mock-data";
 
@@ -10,10 +11,10 @@ export function StatusBadge({ status }: { status: OrderStatus }) {
   };
 
   const labels: Record<OrderStatus, string> = {
-    assigned: "Assigned",
-    in_route: "In Route",
-    delivered: "Delivered",
-    failed: "Failed",
+    assigned: "Asignado",
+    in_route: "En Ruta",
+    delivered: "Entregado",
+    failed: "Fallido",
   };
 
   return (

@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -9,8 +10,8 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
 
   const navItems = [
-    { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard' },
-    { icon: User, label: 'Profile', href: '/profile' },
+    { icon: LayoutGrid, label: 'Inicio', href: '/dashboard' },
+    { icon: User, label: 'Perfil', href: '/profile' },
   ];
 
   return (
