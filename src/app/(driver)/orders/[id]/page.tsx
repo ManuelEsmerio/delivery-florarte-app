@@ -23,10 +23,10 @@ export default function OrderDetailPage() {
   if (!order) return <div className="p-10 text-center">Order not found.</div>;
 
   return (
-    <div className="flex flex-col min-h-screen animate-in fade-in duration-300">
+    <div className="flex flex-col min-h-screen animate-in fade-in slide-in-from-right-4 duration-300">
       {/* Header */}
-      <div className="p-4 bg-white border-b sticky top-0 z-10 flex items-center justify-between">
-        <Button variant="ghost" size="icon" asChild>
+      <div className="p-4 bg-white border-b sticky top-0 z-10 flex items-center justify-between shadow-sm">
+        <Button variant="ghost" size="icon" asChild className="hover:bg-slate-100 transition-colors">
           <Link href="/dashboard">
             <ArrowLeft className="w-6 h-6" />
           </Link>
@@ -41,15 +41,16 @@ export default function OrderDetailPage() {
           <img 
             src={`https://picsum.photos/seed/${order.id}/800/400`} 
             alt="Map view" 
-            className="w-full h-full object-cover opacity-60 grayscale-[0.5]"
+            className="w-full h-full object-cover opacity-60 grayscale-[0.5] transition-transform duration-700 hover:scale-105"
+            data-ai-hint="Map view"
           />
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="bg-primary/90 p-3 rounded-full shadow-lg">
-              <MapPin className="w-8 h-8 text-white animate-bounce" />
+            <div className="bg-primary/90 p-3 rounded-full shadow-lg animate-bounce duration-1000">
+              <MapPin className="w-8 h-8 text-white" />
             </div>
           </div>
           <div className="absolute bottom-4 right-4">
-            <Button size="sm" className="bg-white text-primary hover:bg-white shadow-md rounded-full px-4 h-10">
+            <Button size="sm" className="bg-white text-primary hover:bg-white shadow-md rounded-full px-4 h-10 transition-transform active:scale-90">
               <Navigation className="w-4 h-4 mr-2" />
               Open GPS
             </Button>
@@ -58,13 +59,13 @@ export default function OrderDetailPage() {
 
         <div className="p-6 space-y-6">
           {/* Customer Info */}
-          <section className="bg-white p-5 rounded-2xl shadow-sm space-y-4">
+          <section className="bg-white p-5 rounded-2xl shadow-sm space-y-4 animate-in slide-in-from-bottom-4 duration-500 delay-100">
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Recipient</p>
                 <h3 className="text-xl font-bold">{order.customerName}</h3>
               </div>
-              <Button variant="secondary" size="icon" className="rounded-full bg-accent/20 text-accent-foreground hover:bg-accent/30">
+              <Button variant="secondary" size="icon" className="rounded-full bg-accent/20 text-accent-foreground hover:bg-accent/30 transition-all">
                 <Phone className="w-5 h-5" />
               </Button>
             </div>
@@ -78,7 +79,7 @@ export default function OrderDetailPage() {
           </section>
 
           {/* Items List */}
-          <section className="bg-white p-5 rounded-2xl shadow-sm">
+          <section className="bg-white p-5 rounded-2xl shadow-sm animate-in slide-in-from-bottom-4 duration-500 delay-200">
             <div className="flex items-center gap-2 mb-4">
               <Package className="w-5 h-5 text-primary" />
               <h3 className="font-bold">Order Items</h3>
@@ -87,7 +88,7 @@ export default function OrderDetailPage() {
               {order.items.map((item, i) => (
                 <div key={i} className="flex justify-between items-center py-2 border-b last:border-none">
                   <span className="text-sm font-medium">{item.name}</span>
-                  <span className="bg-slate-100 px-3 py-1 rounded-full text-xs font-bold">×{item.quantity}</span>
+                  <span className="bg-slate-100 px-3 py-1 rounded-full text-xs font-bold transition-all hover:bg-slate-200">×{item.quantity}</span>
                 </div>
               ))}
             </div>
@@ -95,7 +96,7 @@ export default function OrderDetailPage() {
 
           {/* Notes */}
           {order.deliveryNotes && (
-            <section className="bg-blue-50/50 border border-blue-100 p-5 rounded-2xl">
+            <section className="bg-blue-50/50 border border-blue-100 p-5 rounded-2xl animate-in slide-in-from-bottom-4 duration-500 delay-300">
               <div className="flex items-center gap-2 mb-2">
                 <StickyNote className="w-5 h-5 text-primary" />
                 <h3 className="font-bold text-primary">Driver Notes</h3>
@@ -109,10 +110,10 @@ export default function OrderDetailPage() {
       </div>
 
       {/* Action Buttons */}
-      <div className="p-6 pt-0 bg-transparent mb-24">
+      <div className="p-6 pt-0 bg-transparent mb-24 animate-in fade-in duration-500 delay-400">
         {order.status === 'assigned' && (
           <Button 
-            className="w-full btn-large bg-primary"
+            className="w-full btn-large bg-primary shadow-lg hover:shadow-xl transition-all"
             onClick={() => router.push(`/dashboard`)} // Simulating status change
           >
             Start Route
@@ -120,7 +121,7 @@ export default function OrderDetailPage() {
         )}
         {(order.status === 'in_route' || order.status === 'assigned') && (
           <Button 
-            className="w-full btn-large bg-accent hover:bg-accent/90 mt-3"
+            className="w-full btn-large bg-accent hover:bg-accent/90 mt-3 shadow-lg hover:shadow-xl transition-all"
             asChild
           >
             <Link href={`/orders/${order.id}/deliver`}>
@@ -130,7 +131,7 @@ export default function OrderDetailPage() {
           </Button>
         )}
         {order.status === 'delivered' && (
-          <div className="bg-green-100 text-green-700 p-4 rounded-xl text-center font-bold flex items-center justify-center">
+          <div className="bg-green-100 text-green-700 p-4 rounded-xl text-center font-bold flex items-center justify-center animate-in zoom-in duration-300">
             <CheckCircle2 className="w-5 h-5 mr-2" />
             Order Completed
           </div>

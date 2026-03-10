@@ -30,14 +30,14 @@ export default function LoginPage() {
   return (
     <div className="flex-1 flex flex-col p-8 justify-center animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col items-center mb-12">
-        <div className="w-20 h-20 bg-primary rounded-3xl flex items-center justify-center shadow-lg mb-4">
+        <div className="w-20 h-20 bg-primary rounded-3xl flex items-center justify-center shadow-lg mb-4 animate-in zoom-in duration-700 delay-150">
           <Truck className="w-10 h-10 text-white" />
         </div>
         <h1 className="text-3xl font-bold font-headline text-primary tracking-tight">DriveMate</h1>
         <p className="text-muted-foreground mt-1">Portal para Repartidores</p>
       </div>
 
-      <div className="mb-8 p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
+      <div className="mb-8 p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-left-4 duration-500 delay-300">
         <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
         <div className="text-xs text-blue-800">
           <p className="font-bold mb-1">Modo de Demostración</p>
@@ -45,7 +45,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <form onSubmit={handleLogin} className="space-y-6">
+      <form onSubmit={handleLogin} className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-500">
         <div className="space-y-2">
           <Label htmlFor="email">Correo Electrónico</Label>
           <div className="relative">
@@ -54,7 +54,7 @@ export default function LoginPage() {
               id="email" 
               type="email" 
               placeholder="driver@drivemate.com" 
-              className="pl-10 h-12 bg-white" 
+              className="pl-10 h-12 bg-white transition-all duration-200 focus:scale-[1.01]" 
               required 
             />
           </div>
@@ -63,7 +63,7 @@ export default function LoginPage() {
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <Label htmlFor="password">Contraseña</Label>
-            <button type="button" className="text-xs text-primary font-medium">¿Olvidaste tu contraseña?</button>
+            <button type="button" className="text-xs text-primary font-medium hover:underline">¿Olvidaste tu contraseña?</button>
           </div>
           <div className="relative">
             <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -71,7 +71,7 @@ export default function LoginPage() {
               id="password" 
               type="password" 
               placeholder="••••••••" 
-              className="pl-10 h-12 bg-white" 
+              className="pl-10 h-12 bg-white transition-all duration-200 focus:scale-[1.01]" 
               required 
             />
           </div>
@@ -79,14 +79,14 @@ export default function LoginPage() {
 
         <Button 
           type="submit" 
-          className="w-full btn-large bg-primary hover:bg-primary/90" 
+          className="w-full btn-large bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all" 
           disabled={loading}
         >
           {loading ? "Autenticando..." : "Iniciar Sesión"}
         </Button>
       </form>
 
-      <p className="text-center text-sm text-muted-foreground mt-12">
+      <p className="text-center text-sm text-muted-foreground mt-12 opacity-0 animate-in fade-in duration-1000 delay-700">
         ¿No tienes cuenta? Contacta a Despacho.
       </p>
     </div>
