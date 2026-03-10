@@ -1,41 +1,40 @@
-
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
+// Configuración para conectar a base de datos existente sin migraciones automáticas
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql" // Puedes cambiarlo a "mysql" o "sqlite" según tu BD
+  provider = "postgresql" // Cambia a "mysql" o "sqlite" según tu base de datos
   url      = env("DATABASE_URL")
 }
 
 model Order {
   id            String      @id @default(cuid())
-  orderNumber   String      @unique
-  customerName  String
+  orderNumber   String      @unique @map("order_number")
+  customerName  String      @map("customer_name")
   phone         String
   address       String
-  deliveryDate  String
-  deliveryTime  String
-  status        String      // 'assigned' | 'in_route' | 'delivered' | 'failed'
-  deliveryNotes String?
+  deliveryDate  DateTime    @map("delivery_date")
+  deliveryTime  String      @map("delivery_time")
+  status        String      // assigned, in_route, delivered, failed
+  deliveryNotes String?     @map("delivery_notes")
   lat           Float
   lng           Float
-  senderName    String
-  senderPhone   String
-  hasCard       Boolean     @default(false)
+  senderName    String      @map("sender_name")
+  senderPhone   String      @map("sender_phone")
+  hasCard       Boolean     @default(false) @map("has_card")
   items         OrderItem[]
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+
+  @@map("orders") // Nombre real de tu tabla en la DB
 }
 
 model OrderItem {
-  id       String  @id @default(cuid())
-  name     String
-  quantity Int
-  imageUrl String?
-  orderId  String
-  order    Order   @relation(fields: [orderId], references: [id])
+  id        String  @id @default(cuid())
+  name      String
+  quantity  Int
+  imageUrl  String? @map("image_url")
+  orderId   String  @map("order_id")
+  order     Order   @relation(fields: [orderId], references: [id])
+
+  @@map("order_items") // Nombre real de tu tabla en la DB
 }
