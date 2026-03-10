@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { MOCK_ORDERS } from '@/app/lib/mock-data';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, MapPin, Clock, ChevronRight } from 'lucide-react';
+import { Search, MapPin, Clock, ChevronRight, Package } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 
 export default function DashboardPage() {
