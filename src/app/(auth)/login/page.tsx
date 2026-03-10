@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Truck, Lock, Mail } from 'lucide-react';
+import { Truck, Lock, Mail, Info } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
@@ -19,6 +19,10 @@ export default function LoginPage() {
     // Simulate API call
     setTimeout(() => {
       setLoading(false);
+      toast({
+        title: "Bienvenido de nuevo",
+        description: "Sesión iniciada correctamente.",
+      });
       router.push('/dashboard');
     }, 1200);
   };
@@ -30,12 +34,20 @@ export default function LoginPage() {
           <Truck className="w-10 h-10 text-white" />
         </div>
         <h1 className="text-3xl font-bold font-headline text-primary tracking-tight">DriveMate</h1>
-        <p className="text-muted-foreground mt-1">Delivery Driver Portal</p>
+        <p className="text-muted-foreground mt-1">Portal para Repartidores</p>
+      </div>
+
+      <div className="mb-8 p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
+        <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+        <div className="text-xs text-blue-800">
+          <p className="font-bold mb-1">Modo de Demostración</p>
+          <p>Puedes usar cualquier correo (ej. <strong>driver@drivemate.com</strong>) y cualquier contraseña para ingresar.</p>
+        </div>
       </div>
 
       <form onSubmit={handleLogin} className="space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">Correo Electrónico</Label>
           <div className="relative">
             <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input 
@@ -50,8 +62,8 @@ export default function LoginPage() {
 
         <div className="space-y-2">
           <div className="flex justify-between items-center">
-            <Label htmlFor="password">Password</Label>
-            <button type="button" className="text-xs text-primary font-medium">Forgot?</button>
+            <Label htmlFor="password">Contraseña</Label>
+            <button type="button" className="text-xs text-primary font-medium">¿Olvidaste tu contraseña?</button>
           </div>
           <div className="relative">
             <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -70,12 +82,12 @@ export default function LoginPage() {
           className="w-full btn-large bg-primary hover:bg-primary/90" 
           disabled={loading}
         >
-          {loading ? "Authenticating..." : "Sign In"}
+          {loading ? "Autenticando..." : "Iniciar Sesión"}
         </Button>
       </form>
 
       <p className="text-center text-sm text-muted-foreground mt-12">
-        Don't have an account? Contact Dispatch.
+        ¿No tienes cuenta? Contacta a Despacho.
       </p>
     </div>
   );
