@@ -23,7 +23,8 @@ export default function LoginPage() {
         title: "Bienvenido de nuevo",
         description: "Sesión iniciada correctamente.",
       });
-      router.push('/dashboard');
+      // Redirect to splash for data initialization
+      router.push('/splash');
     }, 1200);
   };
 
