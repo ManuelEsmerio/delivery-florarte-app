@@ -1,0 +1,41 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "headphones",
+      "description": "Wireless Headphones",
+      "imageUrl": "https://picsum.photos/seed/headphones/200/200",
+      "imageHint": "headphones"
+    },
+    {
+      "id": "cable",
+      "description": "USB-C Cable",
+      "imageUrl": "https://picsum.photos/seed/cable/200/200",
+      "imageHint": "cable"
+    },
+    {
+      "id": "keyboard",
+      "description": "Mechanical Keyboard",
+      "imageUrl": "https://picsum.photos/seed/keyboard/200/200",
+      "imageHint": "keyboard"
+    },
+    {
+      "id": "mouse",
+      "description": "Gaming Mouse",
+      "imageUrl": "https://picsum.photos/seed/mouse/200/200",
+      "imageHint": "mouse"
+    },
+    {
+      "id": "mousepad",
+      "description": "Mouse Pad",
+      "imageUrl": "https://picsum.photos/seed/mousepad/200/200",
+      "imageHint": "mousepad"
+    },
+    {
+      "id": "map-placeholder",
+      "description": "Map View Placeholder",
+      "imageUrl": "https://picsum.photos/seed/map/800/400",
+      "imageHint": "map"
+    }
+  ]
+}

@@ -1,4 +1,11 @@
+
 export type OrderStatus = 'assigned' | 'in_route' | 'delivered' | 'failed';
+
+export interface OrderItem {
+  name: string;
+  quantity: number;
+  imageUrl?: string;
+}
 
 export interface Order {
   id: string;
@@ -9,7 +16,7 @@ export interface Order {
   deliveryDate: string;
   deliveryTime: string;
   status: OrderStatus;
-  items: { name: string; quantity: number }[];
+  items: OrderItem[];
   deliveryNotes?: string;
   lat: number;
   lng: number;
@@ -26,8 +33,8 @@ export const MOCK_ORDERS: Order[] = [
     deliveryTime: '02:00 PM - 04:00 PM',
     status: 'assigned',
     items: [
-      { name: 'Wireless Headphones', quantity: 1 },
-      { name: 'USB-C Cable', quantity: 2 }
+      { name: 'Wireless Headphones', quantity: 1, imageUrl: 'https://picsum.photos/seed/headphones/200/200' },
+      { name: 'USB-C Cable', quantity: 2, imageUrl: 'https://picsum.photos/seed/cable/200/200' }
     ],
     deliveryNotes: 'Please leave at the front desk.',
     lat: 37.7749,
@@ -43,7 +50,7 @@ export const MOCK_ORDERS: Order[] = [
     deliveryTime: '04:00 PM - 06:00 PM',
     status: 'in_route',
     items: [
-      { name: 'Mechanical Keyboard', quantity: 1 }
+      { name: 'Mechanical Keyboard', quantity: 1, imageUrl: 'https://picsum.photos/seed/keyboard/200/200' }
     ],
     lat: 37.8044,
     lng: -122.2711
@@ -58,8 +65,8 @@ export const MOCK_ORDERS: Order[] = [
     deliveryTime: '01:00 PM - 03:00 PM',
     status: 'delivered',
     items: [
-      { name: 'Gaming Mouse', quantity: 1 },
-      { name: 'Mouse Pad', quantity: 1 }
+      { name: 'Gaming Mouse', quantity: 1, imageUrl: 'https://picsum.photos/seed/mouse/200/200' },
+      { name: 'Mouse Pad', quantity: 1, imageUrl: 'https://picsum.photos/seed/mousepad/200/200' }
     ],
     lat: 37.8715,
     lng: -122.2730

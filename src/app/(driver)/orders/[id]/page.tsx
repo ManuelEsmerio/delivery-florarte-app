@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useParams, useRouter } from 'next/navigation';
@@ -14,6 +15,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function OrderDetailPage() {
   const { id } = useParams();
@@ -42,7 +44,7 @@ export default function OrderDetailPage() {
             src={`https://picsum.photos/seed/${order.id}/800/400`} 
             alt="Map view" 
             className="w-full h-full object-cover opacity-60 grayscale-[0.5] transition-transform duration-700 hover:scale-105"
-            data-ai-hint="Map view"
+            data-ai-hint="map view"
           />
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="bg-primary/90 p-3 rounded-full shadow-lg animate-bounce duration-1000">
@@ -84,11 +86,28 @@ export default function OrderDetailPage() {
               <Package className="w-5 h-5 text-primary" />
               <h3 className="font-bold">Order Items</h3>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {order.items.map((item, i) => (
-                <div key={i} className="flex justify-between items-center py-2 border-b last:border-none">
-                  <span className="text-sm font-medium">{item.name}</span>
-                  <span className="bg-slate-100 px-3 py-1 rounded-full text-xs font-bold transition-all hover:bg-slate-200">×{item.quantity}</span>
+                <div key={i} className="flex gap-4 items-center py-2 border-b last:border-none">
+                  <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-100">
+                    {item.imageUrl ? (
+                      <Image 
+                        src={item.imageUrl} 
+                        alt={item.name} 
+                        fill
+                        className="object-cover"
+                        data-ai-hint="product image"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Package className="w-6 h-6 text-slate-300" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 flex justify-between items-center">
+                    <span className="text-sm font-bold text-slate-900">{item.name}</span>
+                    <span className="bg-slate-100 px-3 py-1 rounded-full text-xs font-bold transition-all hover:bg-slate-200 text-slate-600">×{item.quantity}</span>
+                  </div>
                 </div>
               ))}
             </div>
