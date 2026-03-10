@@ -22,12 +22,12 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col min-h-full">
-      <header className="pt-10 px-6 pb-4 bg-white/50">
+      <header className="pt-10 px-6 pb-2 bg-white/50">
         <h1 className="text-2xl font-bold text-slate-900">My Deliveries</h1>
         <p className="text-sm text-slate-500 font-medium mt-1">Today, May 20, 2024</p>
       </header>
 
-      <div className="px-6 space-y-4 mb-6 sticky top-0 bg-background/80 backdrop-blur-md z-10 py-4">
+      <div className="px-6 pb-6 sticky top-0 bg-background/80 backdrop-blur-md z-10 pt-4 space-y-4">
         <div className="relative group">
           <Search className="absolute left-3 top-3.5 h-5 w-5 text-slate-400 pointer-events-none" />
           <Input 
@@ -48,10 +48,10 @@ export default function DashboardPage() {
         </Tabs>
       </div>
 
-      <main className="flex-1 px-6 pb-24 overflow-y-auto space-y-4">
+      <main className="flex-1 px-6 pb-28 overflow-y-auto space-y-5">
         {filteredOrders.length > 0 ? (
           filteredOrders.map((order) => (
-            <Link key={order.id} href={`/orders/${order.id}`}>
+            <Link key={order.id} href={`/orders/${order.id}`} className="block">
               <Card className="rounded-lg card-shadow border border-slate-100 hover:shadow-lg transition-all active:scale-[0.98]">
                 <CardContent className="p-5">
                   <div className="flex justify-between items-start mb-1">
