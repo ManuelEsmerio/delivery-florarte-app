@@ -1,32 +1,38 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useActionState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Truck, Lock, Mail, Info } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { loginAction } from '@/app/actions/auth-actions';
 
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
+  
+  // Usamos useActionState para manejar la acción de servidor de Next.js 15
+  const [state, formAction, isPending] = useActionState(loginAction, null);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
+  useEffect(() => {
+    if (state?.success) {
       toast({
         title: "Bienvenido de nuevo",
         description: "Sesión iniciada correctamente.",
       });
-      // Redirect to splash for data initialization
+      // Redirigir a splash para la inicialización visual
       router.push('/splash');
-    }, 1200);
-  };
+    } else if (state?.error) {
+      toast({
+        variant: "destructive",
+        title: "Error de acceso",
+        description: state.error,
+      });
+    }
+  }, [state, router, toast]);
 
   return (
     <div className="flex-1 flex flex-col p-8 justify-center animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -41,20 +47,21 @@ export default function LoginPage() {
       <div className="mb-8 p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-left-4 duration-500 delay-300">
         <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
         <div className="text-xs text-blue-800">
-          <p className="font-bold mb-1">Modo de Demostración</p>
-          <p>Puedes usar cualquier correo (ej. <strong>driver@drivemate.com</strong>) y cualquier contraseña para ingresar.</p>
+          <p className="font-bold mb-1">Acceso Real</p>
+          <p>Usa tus credenciales registradas en el sistema central para ingresar.</p>
         </div>
       </div>
 
-      <form onSubmit={handleLogin} className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-500">
+      <form action={formAction} className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-500">
         <div className="space-y-2">
           <Label htmlFor="email">Correo Electrónico</Label>
           <div className="relative">
             <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input 
               id="email" 
+              name="email"
               type="email" 
-              placeholder="driver@drivemate.com" 
+              placeholder="repartidor@empresa.com" 
               className="pl-10 h-12 bg-white transition-all duration-200 focus:scale-[1.01]" 
               required 
             />
@@ -70,6 +77,7 @@ export default function LoginPage() {
             <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input 
               id="password" 
+              name="password"
               type="password" 
               placeholder="••••••••" 
               className="pl-10 h-12 bg-white transition-all duration-200 focus:scale-[1.01]" 
@@ -81,14 +89,14 @@ export default function LoginPage() {
         <Button 
           type="submit" 
           className="w-full btn-large bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all" 
-          disabled={loading}
+          disabled={isPending}
         >
-          {loading ? "Autenticando..." : "Iniciar Sesión"}
+          {isPending ? "Autenticando..." : "Iniciar Sesión"}
         </Button>
       </form>
 
       <p className="text-center text-sm text-muted-foreground mt-12 opacity-0 animate-in fade-in duration-1000 delay-700">
-        ¿No tienes cuenta? Contacta a Despacho.
+        ¿No tienes acceso? Contacta a tu administrador.
       </p>
     </div>
   );
