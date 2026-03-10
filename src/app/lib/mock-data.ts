@@ -1,4 +1,3 @@
-
 export type OrderStatus = 'assigned' | 'in_route' | 'delivered' | 'failed';
 
 export interface OrderItem {
@@ -22,6 +21,7 @@ export interface Order {
   lng: number;
   senderName: string;
   senderPhone: string;
+  hasCard?: boolean;
 }
 
 export const MOCK_ORDERS: Order[] = [
@@ -42,7 +42,8 @@ export const MOCK_ORDERS: Order[] = [
     lat: 37.7749,
     lng: -122.4194,
     senderName: 'Tech Store Central',
-    senderPhone: '+1 (555) 000-9999'
+    senderPhone: '+1 (555) 000-9999',
+    hasCard: true
   },
   {
     id: '2',
@@ -59,7 +60,8 @@ export const MOCK_ORDERS: Order[] = [
     lat: 37.8044,
     lng: -122.2711,
     senderName: 'Logistics Hub North',
-    senderPhone: '+1 (555) 888-7777'
+    senderPhone: '+1 (555) 888-7777',
+    hasCard: false
   },
   {
     id: '3',
@@ -77,6 +79,7 @@ export const MOCK_ORDERS: Order[] = [
     lat: 37.8715,
     lng: -122.2730,
     senderName: 'Gaming World Express',
-    senderPhone: '+1 (555) 444-3333'
+    senderPhone: '+1 (555) 444-3333',
+    hasCard: true
   }
 ];

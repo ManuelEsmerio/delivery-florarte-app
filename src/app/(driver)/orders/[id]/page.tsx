@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useParams, useRouter } from 'next/navigation';
@@ -13,10 +12,12 @@ import {
   StickyNote, 
   Navigation,
   CheckCircle2,
-  User
+  User,
+  CreditCard
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Badge } from '@/components/ui/badge';
 
 export default function OrderDetailPage() {
   const { id } = useParams();
@@ -34,7 +35,15 @@ export default function OrderDetailPage() {
             <ArrowLeft className="w-6 h-6" />
           </Link>
         </Button>
-        <h2 className="font-bold text-lg">{order.orderNumber}</h2>
+        <div className="flex flex-col items-center">
+          <h2 className="font-bold text-lg leading-none">{order.orderNumber}</h2>
+          {order.hasCard && (
+            <Badge variant="outline" className="mt-1 border-orange-200 bg-orange-50 text-orange-700 text-[10px] py-0 px-2 flex items-center gap-1">
+              <CreditCard className="w-3 h-3" />
+              INCLUYE TARJETA
+            </Badge>
+          )}
+        </div>
         <StatusBadge status={order.status} />
       </div>
 

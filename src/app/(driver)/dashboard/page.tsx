@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -6,8 +5,9 @@ import Link from 'next/link';
 import { MOCK_ORDERS } from '@/app/lib/mock-data';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, MapPin, Clock, ChevronRight, Package } from 'lucide-react';
+import { Search, MapPin, Clock, ChevronRight, Package, CreditCard } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from '@/components/ui/badge';
 
 export default function DashboardPage() {
   const [search, setSearch] = useState('');
@@ -64,7 +64,15 @@ export default function DashboardPage() {
                       <h2 className="text-lg font-bold text-slate-900">{order.orderNumber}</h2>
                       <p className="text-primary font-semibold text-sm">{order.customerName}</p>
                     </div>
-                    <StatusBadge status={order.status} />
+                    <div className="flex flex-col items-end gap-2">
+                      <StatusBadge status={order.status} />
+                      {order.hasCard && (
+                        <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700 text-[10px] py-0 px-1.5 flex items-center gap-1">
+                          <CreditCard className="w-3 h-3" />
+                          TARJETA
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="mt-4 space-y-2">
