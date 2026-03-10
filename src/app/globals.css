@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 218 35% 95%;
+    --background: 210 40% 98%;
     --foreground: 223 40% 15%;
     --card: 0 0% 100%;
     --card-foreground: 223 40% 15%;
     --popover: 0 0% 100%;
     --popover-foreground: 223 40% 15%;
-    --primary: 223 71% 46%;
+    --primary: 215 85% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 223 20% 90%;
-    --secondary-foreground: 223 71% 46%;
-    --muted: 223 20% 90%;
-    --muted-foreground: 223 20% 40%;
-    --accent: 191 85% 50%;
-    --accent-foreground: 223 71% 15%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 215 85% 50%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 215 85% 50%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 223 20% 85%;
-    --input: 223 20% 85%;
-    --ring: 223 71% 46%;
-    --radius: 0.75rem;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 215 85% 50%;
+    --radius: 0.5rem;
   }
 }
 
@@ -38,11 +38,15 @@
 }
 
 .mobile-container {
-  @apply mx-auto max-w-md min-h-screen flex flex-col bg-background shadow-xl;
+  @apply mx-auto max-w-md min-h-screen flex flex-col bg-background shadow-2xl relative;
 }
 
 .btn-large {
-  @apply h-14 text-lg font-bold rounded-xl active:scale-95 transition-transform;
+  @apply h-14 text-lg font-bold rounded-lg active:scale-95 transition-transform;
+}
+
+.card-shadow {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
 input, textarea {
