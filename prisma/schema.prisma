@@ -1,86 +1,41 @@
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql" // Puedes cambiarlo a "mysql" o "sqlite" según tu BD
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id       Int      @id @default(autoincrement())
-  email    String   @unique
-  password String
-  name     String
-  role     String   @default("customer") // e.g., "customer", "admin", "driver"
-  orders   Order[]
-}
-
-model Address {
-  id         Int     @id @default(autoincrement())
-  userId     Int
-  street     String
-  city       String
-  state      String
-  zipCode    String
-  user       User    @relation(fields: [userId], references: [id])
-  Order      Order[]
-}
-
 model Order {
-  id          Int                 @id @default(autoincrement())
-  userId      Int
-  addressId   Int
-  totalAmount Decimal             @db.Decimal(10, 2)
-  status      String              @default("pending")
-  createdAt   DateTime            @default(now())
-  user        User                @relation(fields: [userId], references: [id])
-  address     Address             @relation(fields: [addressId], references: [id])
-  items       OrderItem[]
-  assignment  DeliveryAssignment?
-  proof       DeliveryProof?
+  id            String      @id @default(cuid())
+  orderNumber   String      @unique
+  customerName  String
+  phone         String
+  address       String
+  deliveryDate  String
+  deliveryTime  String
+  status        String      // 'assigned' | 'in_route' | 'delivered' | 'failed'
+  deliveryNotes String?
+  lat           Float
+  lng           Float
+  senderName    String
+  senderPhone   String
+  hasCard       Boolean     @default(false)
+  items         OrderItem[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 }
 
 model OrderItem {
-  id        Int     @id @default(autoincrement())
-  orderId   Int
-  productName String
-  quantity  Int
-  price     Decimal @db.Decimal(10, 2)
-  order     Order   @relation(fields: [orderId], references: [id])
-}
-
-// LOGISTICS EXTENSIONS
-
-model DeliveryDriver {
-  id          Int                  @id @default(autoincrement())
-  userId      Int                  @unique
-  licenseNumber String             @unique
-  isAvailable Boolean              @default(true)
-  assignments DeliveryAssignment[]
-  proofs      DeliveryProof[]
-}
-
-model DeliveryAssignment {
-  id         Int      @id @default(autoincrement())
-  orderId    Int      @unique
-  driverId   Int
-  assignedAt DateTime @default(now())
-  status     String   @default("assigned") // assigned, in_route, delivered, failed
-  order      Order    @relation(fields: [orderId], references: [id])
-  driver     DeliveryDriver @relation(fields: [driverId], references: [id])
-}
-
-model DeliveryProof {
-  id           Int      @id @default(autoincrement())
-  orderId      Int      @unique
-  driverId     Int
-  receiverName String
-  signatureUrl String
-  observations String?  @db.Text
-  latitude     Float
-  longitude    Float
-  deliveredAt  DateTime @default(now())
-  order        Order    @relation(fields: [orderId], references: [id])
-  driver       DeliveryDriver @relation(fields: [driverId], references: [id])
+  id       String  @id @default(cuid())
+  name     String
+  quantity Int
+  imageUrl String?
+  orderId  String
+  order    Order   @relation(fields: [orderId], references: [id])
 }
