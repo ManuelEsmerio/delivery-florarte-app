@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
+    --background: 30 20% 98%;
     --foreground: 223 40% 15%;
     --card: 0 0% 100%;
     --card-foreground: 223 40% 15%;
     --popover: 0 0% 100%;
     --popover-foreground: 223 40% 15%;
-    --primary: 215 85% 50%;
+    --primary: 20 85% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 215 85% 50%;
+    --secondary: 222 47% 11%;
+    --secondary-foreground: 210 40% 98%;
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
-    --accent: 215 85% 50%;
+    --accent: 20 85% 50%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 215 85% 50%;
-    --radius: 0.5rem;
+    --ring: 20 85% 50%;
+    --radius: 1rem;
   }
 }
 
@@ -33,7 +33,7 @@
     -webkit-tap-highlight-color: transparent;
   }
   body {
-    @apply bg-background text-foreground font-body;
+    @apply bg-background text-foreground font-body antialiased;
   }
 }
 
@@ -42,13 +42,17 @@
 }
 
 .btn-large {
-  @apply h-14 text-lg font-bold rounded-lg active:scale-95 transition-transform;
+  @apply h-14 text-base font-bold rounded-2xl active:scale-95 transition-all duration-200;
 }
 
 .card-shadow {
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+}
+
+.map-gradient {
+  background: linear-gradient(to bottom, rgba(248, 246, 246, 0) 70%, rgba(248, 246, 246, 1) 100%);
 }
 
 input, textarea {
-  @apply text-base; /* Prevent zoom on iOS */
+  @apply text-base;
 }

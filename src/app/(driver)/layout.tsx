@@ -1,18 +1,12 @@
-
 "use client";
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, User } from 'lucide-react';
+import { Home, User, QrCode } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 export default function DriverLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-
-  const navItems = [
-    { icon: LayoutGrid, label: 'Inicio', href: '/dashboard' },
-    { icon: User, label: 'Perfil', href: '/profile' },
-  ];
 
   return (
     <div className="flex flex-col flex-1 h-screen overflow-hidden">
@@ -20,37 +14,34 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
         {children}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 mx-auto max-w-md bg-white border-t border-slate-200 h-16 flex items-center justify-around z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          const Icon = item.icon;
-          return (
-            <Link 
-              key={item.href} 
-              href={item.href}
-              className={cn(
-                "flex flex-col items-center justify-center space-y-1 w-full h-full transition-all duration-300 relative group",
-                isActive ? "text-primary" : "text-slate-400 hover:text-slate-600"
-              )}
-            >
-              <div className={cn(
-                "p-1 rounded-xl transition-all duration-300 group-active:scale-90",
-                isActive && "bg-primary/5"
-              )}>
-                <Icon className={cn("h-6 w-6 transition-all duration-300", isActive && "stroke-[2.5px] scale-110")} />
-              </div>
-              <span className={cn(
-                "text-[10px] font-bold uppercase tracking-wider transition-all duration-300",
-                isActive ? "opacity-100 translate-y-0" : "opacity-80 translate-y-0.5"
-              )}>
-                {item.label}
-              </span>
-              {isActive && (
-                <div className="absolute bottom-1 w-1 h-1 bg-primary rounded-full animate-in zoom-in duration-300" />
-              )}
-            </Link>
-          );
-        })}
+      <nav className="fixed bottom-0 left-0 right-0 mx-auto max-w-md bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 h-20 flex items-center justify-around z-50 px-6">
+        <Link 
+          href="/dashboard"
+          className={cn(
+            "flex flex-col items-center justify-center space-y-1 w-full h-full transition-all duration-300",
+            pathname === '/dashboard' ? "text-primary" : "text-slate-400"
+          )}
+        >
+          <Home className={cn("h-6 w-6", pathname === '/dashboard' && "stroke-[2.5px]")} />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">Inicio</span>
+        </Link>
+
+        <div className="relative -top-6 shrink-0">
+          <button className="size-16 bg-primary rounded-full shadow-xl shadow-primary/40 flex items-center justify-center text-white border-4 border-background active:scale-90 transition-transform">
+            <QrCode className="h-8 w-8" />
+          </button>
+        </div>
+
+        <Link 
+          href="/profile"
+          className={cn(
+            "flex flex-col items-center justify-center space-y-1 w-full h-full transition-all duration-300",
+            pathname === '/profile' ? "text-primary" : "text-slate-400"
+          )}
+        >
+          <User className={cn("h-6 w-6", pathname === '/profile' && "stroke-[2.5px]")} />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">Perfil</span>
+        </Link>
       </nav>
     </div>
   );
