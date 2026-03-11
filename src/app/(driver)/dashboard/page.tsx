@@ -10,17 +10,18 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+// Forzamos a que la página sea dinámica para que siempre verifique la sesión
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage() {
   const session = await getDriverSession();
   if (!session) redirect('/login');
 
-  // Obtener fecha de hoy sin hora para filtrar
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  // Consultar pedidos reales asignados al conductor para hoy
   const orders = await prisma.order.findMany({
     where: {
       deliveryDriverId: session.id,
@@ -103,7 +104,6 @@ export default async function DashboardPage() {
                       <Badge className={`text-[10px] font-black uppercase px-3 py-1 ${getStatusColor(order.status)}`}>
                         {getStatusLabel(order.status)}
                       </Badge>
-                      {/* Lógica para saber si lleva tarjeta: por ahora asumimos si hay dedicatoria */}
                       {order.dedication && (
                         <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700 text-[10px] py-0 px-1.5 flex items-center gap-1">
                           <CreditCard className="w-3 h-3" />

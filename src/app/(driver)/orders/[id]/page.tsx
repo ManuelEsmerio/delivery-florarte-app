@@ -20,6 +20,8 @@ import Image from 'next/image';
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 
+export const dynamic = 'force-dynamic';
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
