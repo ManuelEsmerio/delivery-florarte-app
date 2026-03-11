@@ -1,4 +1,3 @@
-
 import { prisma } from '@/lib/prisma';
 import { getDriverSession } from '@/app/actions/auth-actions';
 import { redirect, notFound } from 'next/navigation';
@@ -125,7 +124,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Recibido por</p>
-                  <p className="font-bold text-sm text-slate-800">{order.receiverName || "N/A"}</p>
+                  <p className="font-bold text-sm text-slate-800">{order.receiverName || "No especificado"}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Fecha y Hora</p>
@@ -140,14 +139,6 @@ export default async function OrderDetailPage({ params }: PageProps) {
                   <div className="border border-slate-100 rounded-xl overflow-hidden bg-slate-50 h-32 relative">
                     <img src={order.signature} alt="Firma del receptor" className="w-full h-full object-contain mix-blend-multiply" />
                   </div>
-                </div>
-              )}
-              {order.observations && (
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Observaciones de entrega</p>
-                  <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 italic">
-                    "{order.observations}"
-                  </p>
                 </div>
               )}
             </div>

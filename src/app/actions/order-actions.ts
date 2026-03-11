@@ -1,13 +1,12 @@
-
 'use server';
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
 /**
- * Actualiza el estado de una orden sin validaciones estrictas de sesión.
+ * Actualiza el estado de una orden.
  */
-export async function updateOrderStatus(orderId: number, status: any) {
+export async function updateOrderStatus(orderId: number, status: string) {
   await prisma.order.update({
     where: { id: orderId },
     data: { 
@@ -21,22 +20,21 @@ export async function updateOrderStatus(orderId: number, status: any) {
 }
 
 /**
- * Finaliza la entrega con firma, nombre del receptor y observaciones.
+ * Finaliza la entrega guardando la firma y el nombre del receptor.
+ * Estos campos son opcionales/nullable según el requerimiento.
  */
 export async function completeDelivery(
   orderId: number, 
-  receiverName: string, 
-  signatureUrl: string,
-  observations?: string
+  receiverName?: string, 
+  signatureUrl?: string
 ) {
   await prisma.order.update({
     where: { id: orderId },
     data: {
       status: 'DELIVERED',
       deliveredAt: new Date(),
-      signature: signatureUrl,
-      receiverName: receiverName,
-      observations: observations
+      signature: signatureUrl || null,
+      receiverName: receiverName || null
     }
   });
 

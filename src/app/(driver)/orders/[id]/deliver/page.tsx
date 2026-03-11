@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useTransition } from 'react';
@@ -6,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, CheckCircle2, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { SignaturePad } from '@/components/SignaturePad';
@@ -21,26 +19,16 @@ export default function DeliveryConfirmationPage() {
 
   const [receiverName, setReceiverName] = useState('');
   const [signature, setSignature] = useState('');
-  const [observations, setObservations] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!signature) {
-      toast({
-        variant: "destructive",
-        title: "Firma Requerida",
-        description: "Por favor, solicita la firma del receptor."
-      });
-      return;
-    }
-
+    
     startTransition(async () => {
       try {
         await completeDelivery(
           parseInt(id as string), 
           receiverName, 
-          signature,
-          observations
+          signature
         );
         toast({
           title: "¡Entrega Exitosa!",
@@ -72,38 +60,26 @@ export default function DeliveryConfirmationPage() {
         <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex items-start gap-3">
           <ShieldCheck className="w-6 h-6 text-primary shrink-0 mt-1" />
           <div className="text-sm">
-            <p className="font-bold text-primary">Evidencia Requerida</p>
-            <p className="text-primary/70">Captura los datos del receptor para el pedido #{id}.</p>
+            <p className="font-bold text-primary">Evidencia de Entrega</p>
+            <p className="text-primary/70">Registra quién recibe el pedido #{id}.</p>
           </div>
         </div>
 
         <div className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="receiver_name" className="text-base font-bold">Nombre de quien recibe *</Label>
+            <Label htmlFor="receiver_name" className="text-base font-bold">Nombre de quien recibe (Opcional)</Label>
             <Input 
               id="receiver_name"
-              placeholder="Nombre completo"
+              placeholder="Ej. Juan Pérez"
               className="h-12 bg-white"
-              required
               value={receiverName}
               onChange={(e) => setReceiverName(e.target.value)}
             />
           </div>
 
           <div className="space-y-2">
-            <Label className="text-base font-bold">Firma del receptor *</Label>
+            <Label className="text-base font-bold">Firma (Opcional)</Label>
             <SignaturePad onCapture={setSignature} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="observations" className="text-base font-bold">Observaciones (Opcional)</Label>
-            <Textarea 
-              id="observations"
-              placeholder="Ej. Dejado con el vecino, caja dañada, etc."
-              className="bg-white min-h-[100px]"
-              value={observations}
-              onChange={(e) => setObservations(e.target.value)}
-            />
           </div>
         </div>
 
