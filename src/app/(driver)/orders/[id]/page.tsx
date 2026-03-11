@@ -1,7 +1,6 @@
+
 import { prisma } from '@/lib/prisma';
-import { getDriverSession } from '@/app/actions/auth-actions';
 import { redirect, notFound } from 'next/navigation';
-import { cookies } from 'next/headers';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -24,14 +23,16 @@ export const dynamic = 'force-dynamic';
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ driverId?: string }>;
 }
 
-export default async function OrderDetailPage({ params }: PageProps) {
+export default async function OrderDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
+  const { driverId: driverIdStr } = await searchParams;
   
-  await cookies();
-  const session = await getDriverSession();
-  if (!session) redirect('/login');
+  if (!driverIdStr) {
+    redirect('/login');
+  }
 
   const order = await prisma.order.findUnique({
     where: { id: parseInt(id) },
@@ -71,7 +72,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" asChild className="rounded-full size-10">
-              <Link href="/dashboard">
+              <Link href={`/dashboard?driverId=${driverIdStr}`}>
                 <ArrowLeft className="w-6 h-6" />
               </Link>
             </Button>
@@ -256,7 +257,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
           
           {order.status !== 'DELIVERED' && (
             <Button className="w-full bg-primary text-white h-16 rounded-2xl font-bold shadow-xl shadow-primary/20" asChild>
-              <Link href={`/orders/${order.id}/deliver`}>
+              <Link href={`/orders/${order.id}/deliver?driverId=${driverIdStr}`}>
                 <CheckCircle2 className="w-5 h-5 mr-2" />
                 Confirmar Entrega
               </Link>

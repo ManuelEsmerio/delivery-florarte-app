@@ -59,6 +59,13 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
 }
 
 /**
+ * Cierre de sesión (limpia estado en servidor si es necesario)
+ */
+export async function logoutAction() {
+  return { success: true };
+}
+
+/**
  * Actualiza la contraseña utilizando el campo passwordHash.
  */
 export async function updatePasswordAction(driverId: number, formData: FormData): Promise<ActionState> {
