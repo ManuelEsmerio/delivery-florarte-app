@@ -18,14 +18,22 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * Obtiene las órdenes por driverId y status.
+ * Para 'OUT_FOR_DELIVERY', saltamos las que ya tienen notas de incidencia (deliveryNotes).
  */
 export async function getOrdersByStatus(driverId: number, status: 'OUT_FOR_DELIVERY' | 'DELIVERED') {
   try {
+    const whereClause: any = {
+      deliveryDriverId: driverId,
+      status: status
+    };
+
+    // Si estamos en ruta, ocultamos los que ya tienen una nota de fallo/incidencia
+    if (status === 'OUT_FOR_DELIVERY') {
+      whereClause.deliveryNotes = null;
+    }
+
     const orders = await prisma.order.findMany({
-      where: {
-        deliveryDriverId: driverId,
-        status: status
-      },
+      where: whereClause,
       include: {
         orderAddress: true,
       },
@@ -42,41 +50,23 @@ export async function getOrdersByStatus(driverId: number, status: 'OUT_FOR_DELIV
 }
 
 /**
- * Actualiza el estado de una orden.
- */
-export async function updateOrderStatus(orderId: number, status: any) {
-  try {
-    await prisma.order.update({
-      where: { id: orderId },
-      data: { status }
-    });
-    revalidatePath('/dashboard');
-    return { success: true };
-  } catch (error) {
-    console.error('Update Status Error:', error);
-    return { success: false, error: 'No se pudo actualizar el estado' };
-  }
-}
-
-/**
- * Reporta un intento de entrega fallido (No hay nadie).
- * El motivo se guarda en deliveryNotes.
+ * Reporta un intento de entrega fallido.
+ * Según instrucción: SOLO se actualiza el campo deliveryNotes.
  */
 export async function reportFailedDelivery(orderId: number, comment: string) {
   try {
-    // 1. Actualizar base de datos primero
+    // 1. Actualizar solo el deliveryNotes para evitar errores de ENUM con status
     const order = await prisma.order.update({
       where: { id: orderId },
       data: {
-        status: 'FAILED' as any, 
-        deliveryNotes: comment, // Se guarda el motivo en deliveryNotes
+        deliveryNotes: comment, 
       },
       include: {
         user: true,
       }
     });
 
-    // 2. Intentar enviar correo (sin bloquear si falla)
+    // 2. Intentar enviar correo (sin bloquear el flujo principal)
     const customerEmail = (order as any).guestEmail || order.user?.email;
     const customerName = (order as any).guestName || order.user?.name || 'Cliente';
 
@@ -103,7 +93,7 @@ export async function reportFailedDelivery(orderId: number, comment: string) {
                   <strong>Aviso importante:</strong> El repartidor tuvo 10 min llamando a la puerta pero no recibió respuesta y tu producto será regresado a la tienda.
                 </p>
               </div>
-              <p style="font-size: 12px; color: #999; margin-top: 30px; text-align: center; border-top: 1px solid #eee; pt: 20px;">
+              <p style="font-size: 12px; color: #999; margin-top: 30px; text-align: center; border-top: 1px solid #eee; padding-top: 20px;">
                 Si tienes dudas, por favor contacta con nuestro equipo de soporte.
               </p>
             </div>
@@ -118,7 +108,7 @@ export async function reportFailedDelivery(orderId: number, comment: string) {
     return { success: true };
   } catch (error: any) {
     console.error('Error en reportFailedDelivery:', error);
-    return { success: false, error: error.message || 'No se pudo reportar la incidencia.' };
+    return { success: false, error: 'No se pudo reportar la incidencia.' };
   }
 }
 
