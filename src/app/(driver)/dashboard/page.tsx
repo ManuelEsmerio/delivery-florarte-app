@@ -8,7 +8,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -18,13 +17,12 @@ interface PageProps {
 }
 
 export default async function DashboardPage({ searchParams }: PageProps) {
-  const { status: activeStatus = 'IN_ROUTE' } = await searchParams;
+  const { status: activeStatus = 'OUT_FOR_DELIVERY' } = await searchParams;
   
-  await cookies();
   const session = await getDriverSession();
   const driverId = session.id;
 
-  // Solo permitimos 'OUT_FOR_DELIVERY' y 'DELIVERED' como filtros principales
+  // Filtro estricto: Solo permitimos 'OUT_FOR_DELIVERY' (En Ruta) y 'DELIVERED' (Entregado)
   const filterStatus = activeStatus === 'DELIVERED' ? 'DELIVERED' : 'OUT_FOR_DELIVERY';
 
   const orders = await prisma.order.findMany({
@@ -67,7 +65,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               {format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}
             </p>
           </div>
-          <div className="size-10 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold">
+          <div className="size-10 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold border border-primary/20">
             {session.name.charAt(0)}
           </div>
         </div>
@@ -77,17 +75,17 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <div className="relative group">
           <Search className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
           <input 
-            placeholder="Buscar pedido..." 
-            className="w-full pl-10 pr-3 py-3 border-none bg-white rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-primary/20 outline-none"
+            placeholder="Buscar por # de orden..." 
+            className="w-full pl-10 pr-3 py-3 border-none bg-white rounded-xl text-sm shadow-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
           />
         </div>
 
         <Tabs defaultValue={filterStatus} className="w-full">
-          <TabsList className="w-full bg-white shadow-sm p-1 h-12 border-none">
-            <TabsTrigger value="OUT_FOR_DELIVERY" asChild className="flex-1 text-xs font-bold uppercase">
-              <Link href="/dashboard?status=IN_ROUTE">En Ruta</Link>
+          <TabsList className="w-full bg-white shadow-sm p-1 h-12 border-none rounded-xl">
+            <TabsTrigger value="OUT_FOR_DELIVERY" asChild className="flex-1 text-xs font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white">
+              <Link href="/dashboard?status=OUT_FOR_DELIVERY">En Ruta</Link>
             </TabsTrigger>
-            <TabsTrigger value="DELIVERED" asChild className="flex-1 text-xs font-bold uppercase">
+            <TabsTrigger value="DELIVERED" asChild className="flex-1 text-xs font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white">
               <Link href="/dashboard?status=DELIVERED">Entregados</Link>
             </TabsTrigger>
           </TabsList>
@@ -112,7 +110,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                         {order.orderAddress?.recipientName || "Cliente"}
                       </p>
                     </div>
-                    <Badge className={`text-[10px] font-black uppercase px-3 py-1 border-none ${getStatusColor(order.status)}`}>
+                    <Badge className={`text-[10px] font-black uppercase px-3 py-1 border-none rounded-lg ${getStatusColor(order.status)}`}>
                       {getStatusLabel(order.status)}
                     </Badge>
                   </div>
@@ -125,14 +123,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                     <div className="flex items-center text-sm text-slate-600">
                       <Clock className="h-4 w-4 mr-2 text-slate-400 shrink-0" />
                       <span className="font-medium tracking-tight">
-                        {order.deliveryTimeSlot || "Sin horario"}
+                        {order.deliveryTimeSlot || "Sin horario especificado"}
                       </span>
                     </div>
                   </div>
 
                   <div className="mt-5 pt-4 border-t border-slate-50 flex justify-end">
                     <div className="text-primary text-xs font-black uppercase tracking-widest flex items-center">
-                      Detalles
+                      Ver Detalles
                       <ChevronRight className="h-4 w-4 ml-1" />
                     </div>
                   </div>
@@ -141,9 +139,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             </Link>
           ))
         ) : (
-          <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-100">
-            <Package className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-slate-500 text-sm font-bold">Sin pedidos en esta categoría.</p>
+          <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-100 flex flex-col items-center">
+            <Package className="w-12 h-12 text-slate-200 mb-4" />
+            <p className="text-slate-500 text-sm font-bold">No tienes pedidos en esta categoría.</p>
+            <p className="text-slate-400 text-xs mt-1">Sincroniza para recibir nuevas rutas.</p>
           </div>
         )}
       </main>

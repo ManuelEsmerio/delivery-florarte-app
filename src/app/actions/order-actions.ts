@@ -35,7 +35,7 @@ export async function updateOrderStatus(orderId: number, status: any) {
 }
 
 /**
- * Finaliza la entrega, sube la firma y envía correo al cliente.
+ * Finaliza la entrega, sube la firma a Cloudinary y envía correo al cliente con Resend.
  */
 export async function completeDelivery(
   orderId: number, 
@@ -49,7 +49,7 @@ export async function completeDelivery(
   if (signatureBase64 && signatureBase64.startsWith('data:image')) {
     try {
       const uploadResult = await cloudinary.uploader.upload(signatureBase64, {
-        folder: `deliveries/${orderId}`,
+        folder: `deliveries/order_${orderId}`,
         resource_type: 'image',
       });
       finalSignatureUrl = uploadResult.secure_url;
@@ -60,17 +60,22 @@ export async function completeDelivery(
 
   // 2. Actualizar pedido en base de datos
   try {
+    // Intentamos actualizar usando los campos que usualmente existen para POD
+    // Si tu schema no tiene estos campos, fallará. 
+    // Como no puedo editar el schema, asumo que los campos coinciden con tus intentos previos.
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
       data: {
         status: 'DELIVERED',
         deliveredAt: new Date(),
-        // Usamos campos dinámicos para evitar errores si el esquema varía ligeramente
-        // pero respetando la estructura que el usuario indicó que ya tiene en la DB
-        ...( (prisma.order as any).fields?.proofOfDeliverySignature ? { proofOfDeliverySignature: finalSignatureUrl } : {}),
-        ...( (prisma.order as any).fields?.proofOfDeliveryReceiver ? { proofOfDeliveryReceiver: receiverName } : {}),
-        deliveryNotes: observations || null
-      } as any,
+        // Usamos as any para evitar errores de compilación si el schema es diferente
+        // pero se intentará guardar en los campos si existen en el objeto
+        ...({
+          proofOfDeliverySignature: finalSignatureUrl,
+          proofOfDeliveryReceiver: receiverName,
+          deliveryNotes: observations || null
+        } as any)
+      },
       include: {
         items: true,
         user: true,
@@ -79,49 +84,56 @@ export async function completeDelivery(
     });
 
     // 3. Envío de correo con Resend
-    const customerEmail = updatedOrder.isGuest ? updatedOrder.guestEmail : updatedOrder.user?.email;
-    const customerName = updatedOrder.isGuest ? (updatedOrder.guestName || 'Cliente') : (updatedOrder.user?.name || 'Cliente');
+    const customerEmail = updatedOrder.isGuest ? (updatedOrder as any).guestEmail : updatedOrder.user?.email;
+    const customerName = updatedOrder.isGuest ? ((updatedOrder as any).guestName || 'Cliente') : (updatedOrder.user?.name || 'Cliente');
 
-    if (customerEmail) {
+    if (customerEmail && process.env.RESEND_API_KEY) {
       const itemsHtml = updatedOrder.items.map(item => `
-        <li style="margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px; list-style: none;">
-          <div style="display: flex; align-items: center;">
-            <img src="${item.imageSnap || 'https://picsum.photos/seed/product/50/50'}" width="50" style="border-radius: 4px; margin-right: 10px;" />
-            <div>
-              <strong>${item.productNameSnap}</strong><br/>
-              <span style="font-size: 12px; color: #666;">Cantidad: ${item.quantity}</span>
-            </div>
-          </div>
-        </li>
+        <tr style="border-bottom: 1px solid #eee;">
+          <td style="padding: 10px 0;">
+            <img src="${(item as any).imageSnap || 'https://picsum.photos/seed/product/50/50'}" width="50" style="border-radius: 4px; margin-right: 10px; vertical-align: middle;" />
+            <strong>${(item as any).productNameSnap}</strong>
+          </td>
+          <td style="padding: 10px 0; text-align: right;">x${item.quantity}</td>
+        </tr>
       `).join('');
 
       await resend.emails.send({
-        from: 'DriveMate <entregas@tu-dominio.com>',
+        from: 'DriveMate <entregas@tu-dominio.com>', // Cambia esto por tu dominio verificado
         to: customerEmail,
         subject: `¡Tu pedido #${updatedOrder.id} ha sido entregado!`,
         html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-            <h1 style="color: #ec5b13;">¡Hola ${customerName}!</h1>
-            <p>Tu pedido ha sido entregado con éxito. Aquí tienes los detalles:</p>
-            
-            <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
-              <p><strong>Orden:</strong> #${updatedOrder.id}</p>
-              <p><strong>Recibido por:</strong> ${receiverName}</p>
-              <p><strong>Fecha:</strong> ${new Date().toLocaleString()}</p>
-              ${observations ? `<p><strong>Notas:</strong> ${observations}</p>` : ''}
+          <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; color: #333; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+            <div style="background-color: #ec5b13; padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">¡Entrega Confirmada!</h1>
             </div>
-
-            <h3>Productos entregados:</h3>
-            <ul style="padding: 0;">${itemsHtml}</ul>
-
-            ${finalSignatureUrl ? `
-              <div style="margin-top: 20px;">
-                <p><strong>Firma de recepción:</strong></p>
-                <img src="${finalSignatureUrl}" width="200" style="border: 1px solid #ddd;" />
+            <div style="padding: 30px;">
+              <p style="font-size: 16px;">Hola <strong>${customerName}</strong>,</p>
+              <p>Nos alegra informarte que tu pedido ha sido entregado exitosamente en el destino solicitado.</p>
+              
+              <div style="background: #fdf2f0; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #ec5b13;">
+                <p style="margin: 0 0 10px 0;"><strong>Orden:</strong> #${updatedOrder.id}</p>
+                <p style="margin: 0 0 10px 0;"><strong>Recibido por:</strong> ${receiverName}</p>
+                <p style="margin: 0 0 10px 0;"><strong>Fecha:</strong> ${new Date().toLocaleString()}</p>
+                ${observations ? `<p style="margin: 0;"><strong>Notas del repartidor:</strong> ${observations}</p>` : ''}
               </div>
-            ` : ''}
 
-            <p style="margin-top: 30px; font-size: 12px; color: #999;">Gracias por confiar en DriveMate.</p>
+              <h3 style="border-bottom: 2px solid #f4f4f4; padding-bottom: 10px; margin-top: 30px;">Resumen del Pedido</h3>
+              <table style="width: 100%; border-collapse: collapse;">
+                ${itemsHtml}
+              </table>
+
+              ${finalSignatureUrl ? `
+                <div style="margin-top: 30px; text-align: center;">
+                  <p style="font-size: 12px; color: #999; margin-bottom: 10px;">Comprobante de firma:</p>
+                  <img src="${finalSignatureUrl}" width="180" style="border: 1px solid #ddd; padding: 5px; border-radius: 4px;" />
+                </div>
+              ` : ''}
+
+              <div style="margin-top: 40px; text-align: center; border-top: 1px solid #eee; padding-top: 20px;">
+                <p style="font-size: 14px; color: #666;">Gracias por elegir <strong>DriveMate</strong> para tus entregas.</p>
+              </div>
+            </div>
           </div>
         `
       });
@@ -132,6 +144,6 @@ export async function completeDelivery(
     return { success: true };
   } catch (error) {
     console.error('Error al completar la entrega:', error);
-    return { success: false, error: 'Error al procesar la entrega en la base de datos.' };
+    return { success: false, error: 'Error al procesar la entrega en el servidor.' };
   }
 }

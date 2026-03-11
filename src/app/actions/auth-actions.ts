@@ -20,35 +20,36 @@ export type DriverSession = {
 };
 
 /**
- * Obtiene la sesión del repartidor de forma simple.
+ * Obtiene la sesión del repartidor de forma segura.
  */
 export async function getDriverSession(): Promise<DriverSession> {
-  try {
-    const cookieStore = await cookies();
-    const sessionData = cookieStore.get('driver_session')?.value;
+  const cookieStore = await cookies();
+  const sessionData = cookieStore.get('driver_session')?.value;
 
-    if (sessionData) {
-      return JSON.parse(sessionData) as DriverSession;
-    }
-  } catch (e) {
-    console.error("Error parseando sesión");
+  if (!sessionData) {
+    redirect('/login');
   }
 
-  // Fallback para desarrollo si no hay sesión
-  return {
-    id: 1, 
-    name: 'Repartidor Demo',
-    role: 'DELIVERY',
-    email: 'demo@drivemate.com'
-  };
+  try {
+    return JSON.parse(sessionData) as DriverSession;
+  } catch (e) {
+    console.error("Error al parsear la sesión");
+    redirect('/login');
+  }
 }
 
 /**
- * Acción de inicio de sesión.
+ * Acción de inicio de sesión validando contra la base de datos.
+ * IMPORTANTE: Si obtienes error de "Table User does not exist", 
+ * verifica que tu modelo User en el schema tenga @@map("users") o el nombre exacto de tu tabla.
  */
 export async function loginAction(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
+
+  if (!email || !password) {
+    return { error: "Por favor, completa todos los campos." };
+  }
 
   try {
     const user = await prisma.user.findUnique({
@@ -56,36 +57,40 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
     });
 
     if (!user) {
-      return { error: "Usuario no encontrado." };
+      return { error: "Credenciales inválidas." };
     }
 
     // Validación de contraseña con bcrypt
     const isPasswordValid = await bcrypt.compare(password, user.password || '');
-    if (!isPasswordValid && password !== 'admin123') { // admin123 como fallback temporal si es necesario
-      return { error: "Contraseña incorrecta." };
+    
+    // Fallback temporal por si aún tienes contraseñas en texto plano (remover en producción)
+    const isPlainMatch = password === user.password;
+
+    if (!isPasswordValid && !isPlainMatch) {
+      return { error: "Credenciales inválidas." };
     }
 
     const sessionData: DriverSession = {
       id: user.id,
       name: user.name,
-      role: user.role,
+      role: user.role || 'DRIVER',
       email: user.email
     };
 
     const cookieStore = await cookies();
     cookieStore.set('driver_session', JSON.stringify(sessionData), { 
       path: '/',
-      secure: true, 
+      secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: 60 * 60 * 24 * 7, // 1 semana
     });
 
-    redirect('/splash');
+    return redirect('/splash');
   } catch (error) {
     if ((error as any).digest?.includes('NEXT_REDIRECT')) throw error;
     console.error('ERROR en loginAction:', error);
-    return { error: "Error al iniciar sesión." };
+    return { error: "Error de conexión con la base de datos. Verifica los nombres de las tablas." };
   }
 }
 
@@ -96,9 +101,9 @@ export async function updatePasswordAction(formData: FormData): Promise<ActionSt
   const oldPassword = formData.get('oldPassword') as string;
   const newPassword = formData.get('newPassword') as string;
   
-  const session = await getDriverSession();
-  
   try {
+    const session = await getDriverSession();
+    
     const user = await prisma.user.findUnique({
       where: { id: session.id }
     });
@@ -107,16 +112,15 @@ export async function updatePasswordAction(formData: FormData): Promise<ActionSt
       return { error: "Usuario no encontrado." };
     }
 
-    // 1. Validar contraseña actual con bcrypt
     const isMatch = await bcrypt.compare(oldPassword, user.password);
-    if (!isMatch) {
+    const isPlainMatch = oldPassword === user.password;
+
+    if (!isMatch && !isPlainMatch) {
       return { error: "La contraseña actual es incorrecta." };
     }
 
-    // 2. Encriptar nueva contraseña
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // 3. Guardar en DB
     await prisma.user.update({
       where: { id: user.id },
       data: { password: hashedPassword }
@@ -125,7 +129,7 @@ export async function updatePasswordAction(formData: FormData): Promise<ActionSt
     revalidatePath('/profile');
     return { success: true };
   } catch (error) {
-    console.error("Error updating password:", error);
+    console.error("Error al actualizar contraseña:", error);
     return { error: "No se pudo actualizar la contraseña." };
   }
 }
