@@ -7,15 +7,14 @@ import {
   ArrowLeft, 
   MapPin, 
   Phone, 
-  Package, 
-  StickyNote, 
   Navigation,
   CheckCircle2,
   User,
   Store,
   Map,
   CreditCard,
-  Mail
+  StickyNote,
+  FileText
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -31,7 +30,6 @@ interface PageProps {
 export default async function OrderDetailPage({ params }: PageProps) {
   const { id } = await params;
   
-  // Forzamos lectura de cookies para garantizar contexto dinámico
   await cookies();
   const session = await getDriverSession();
   if (!session) redirect('/login');
@@ -56,7 +54,6 @@ export default async function OrderDetailPage({ params }: PageProps) {
     return labels[status] || status;
   };
 
-  // Lógica para el Remitente (Quien envía)
   const senderInfo = order.isGuest 
     ? {
         name: order.guestName || "Invitado",
@@ -84,52 +81,92 @@ export default async function OrderDetailPage({ params }: PageProps) {
               <p className="text-lg font-black leading-none">ORD-{order.id}</p>
             </div>
           </div>
-          <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] font-black tracking-wider uppercase px-3 py-1">
+          <Badge className={`border-none text-[10px] font-black tracking-wider uppercase px-3 py-1 ${
+            order.status === 'DELIVERED' ? 'bg-green-100 text-green-700' : 'bg-primary/10 text-primary'
+          }`}>
             {getStatusLabel(order.status)}
           </Badge>
         </div>
       </header>
 
       <main className="flex-1 pb-32">
-        <section className="relative h-64 w-full overflow-hidden">
-          <img 
-            src={`https://picsum.photos/seed/${order.id}/800/400`} 
-            alt="Vista del mapa" 
-            className="w-full h-full object-cover grayscale-[0.2]"
-          />
-          <div className="absolute inset-0 map-gradient"></div>
-          
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-            <div className="relative flex items-center justify-center">
-              <div className="absolute size-14 bg-primary/30 rounded-full animate-ping"></div>
-              <div className="size-12 bg-primary rounded-full flex items-center justify-center shadow-2xl border-2 border-white">
-                <MapPin className="text-white w-6 h-6" />
+        {order.status !== 'DELIVERED' && (
+          <section className="relative h-64 w-full overflow-hidden">
+            <img 
+              src={`https://picsum.photos/seed/${order.id}/800/400`} 
+              alt="Vista del mapa" 
+              className="w-full h-full object-cover grayscale-[0.2]"
+            />
+            <div className="absolute inset-0 map-gradient"></div>
+            
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+              <div className="relative flex items-center justify-center">
+                <div className="absolute size-14 bg-primary/30 rounded-full animate-ping"></div>
+                <div className="size-12 bg-primary rounded-full flex items-center justify-center shadow-2xl border-2 border-white">
+                  <MapPin className="text-white w-6 h-6" />
+                </div>
               </div>
             </div>
-          </div>
 
-          <Button className="absolute bottom-6 right-4 bg-secondary hover:bg-secondary/90 text-white px-6 py-6 rounded-2xl shadow-2xl">
-            <Navigation className="w-5 h-5 mr-2 text-primary fill-primary" />
-            <span className="font-bold text-sm">Abrir GPS</span>
-          </Button>
-        </section>
+            <Button className="absolute bottom-6 right-4 bg-secondary hover:bg-secondary/90 text-white px-6 py-6 rounded-2xl shadow-2xl">
+              <Navigation className="w-5 h-5 mr-2 text-primary fill-primary" />
+              <span className="font-bold text-sm">Abrir GPS</span>
+            </Button>
+          </section>
+        )}
 
-        <div className="px-4 -mt-6 space-y-3 relative z-10">
-          {order.dedication && (
-            <div className="bg-orange-50 border border-orange-200 p-3 rounded-2xl flex items-center gap-3">
-              <CreditCard className="w-5 h-5 text-primary" />
-              <span className="text-xs font-bold text-primary uppercase">Este pedido incluye una tarjeta con mensaje</span>
+        <div className={`px-4 space-y-3 relative z-10 ${order.status !== 'DELIVERED' ? '-mt-6' : 'mt-6'}`}>
+          {order.status === 'DELIVERED' && (
+            <div className="bg-white p-6 rounded-2xl shadow-sm border-2 border-green-50 card-shadow space-y-4">
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle2 className="w-6 h-6" />
+                <h3 className="font-black uppercase tracking-tight text-sm">Entrega Completada</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Recibido por</p>
+                  <p className="font-bold text-sm text-slate-800">{order.receiverName || "N/A"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Fecha y Hora</p>
+                  <p className="font-bold text-[11px] text-slate-800">
+                    {order.deliveredAt ? new Date(order.deliveredAt).toLocaleString() : "N/A"}
+                  </p>
+                </div>
+              </div>
+              {order.signature && (
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Firma Digital</p>
+                  <div className="border border-slate-100 rounded-xl overflow-hidden bg-slate-50 h-32 relative">
+                    <img src={order.signature} alt="Firma del receptor" className="w-full h-full object-contain mix-blend-multiply" />
+                  </div>
+                </div>
+              )}
+              {order.observations && (
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Observaciones de entrega</p>
+                  <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 italic">
+                    "{order.observations}"
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Sección de Remitente (Quien compra) */}
+          {order.dedication && (
+            <div className="bg-orange-50 border border-orange-200 p-3 rounded-2xl flex items-center gap-3">
+              <CreditCard className="w-5 h-5 text-primary" />
+              <span className="text-xs font-bold text-primary uppercase">Incluye tarjeta con mensaje</span>
+            </div>
+          )}
+
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between card-shadow">
             <div className="flex items-center gap-4">
               <div className="size-12 bg-slate-50 rounded-xl flex items-center justify-center">
                 <Store className="w-6 h-6 text-slate-400" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Remitente (Cliente)</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Remitente</p>
                 <h3 className="font-bold text-sm leading-tight">{senderInfo.name}</h3>
                 <p className="text-[10px] text-slate-500">{senderInfo.email}</p>
               </div>
@@ -143,7 +180,6 @@ export default async function OrderDetailPage({ params }: PageProps) {
             )}
           </div>
 
-          {/* Sección de Destinatario (Quien recibe) */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between card-shadow">
             <div className="flex items-center gap-4">
               <div className="size-12 bg-primary/10 rounded-xl flex items-center justify-center">
@@ -168,7 +204,10 @@ export default async function OrderDetailPage({ params }: PageProps) {
         </div>
 
         <section className="mt-8 px-4">
-          <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-4 px-1">Artículos ({order.items.length})</h3>
+          <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-4 px-1 flex items-center gap-2">
+            <FileText className="w-3 h-3" />
+            Artículos ({order.items.length})
+          </h3>
           <div className="space-y-3">
             {order.items.map((item) => (
               <div key={item.id} className="flex items-center justify-between bg-white p-3 rounded-2xl border border-slate-100 card-shadow">
@@ -197,7 +236,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
             <div className="bg-primary/5 border-l-4 border-primary p-4 rounded-r-2xl">
               <div className="flex items-center gap-2 mb-2">
                 <StickyNote className="w-4 h-4 text-primary" />
-                <span className="text-[10px] font-black uppercase text-primary">Nota de Entrega</span>
+                <span className="text-[10px] font-black uppercase text-primary">Instrucciones Especiales</span>
               </div>
               <p className="text-sm text-slate-600 italic">"{order.deliveryNotes}"</p>
             </div>
@@ -211,7 +250,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
               const { updateOrderStatus } = await import('@/app/actions/order-actions');
               await updateOrderStatus(order.id, 'OUT_FOR_DELIVERY');
             }}>
-              <Button className="w-full bg-secondary text-white h-16 rounded-2xl font-bold flex items-center justify-center gap-2">
+              <Button className="w-full bg-secondary text-white h-16 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-xl shadow-slate-200">
                 <Map className="w-5 h-5" />
                 Iniciar Ruta
               </Button>
@@ -219,19 +258,12 @@ export default async function OrderDetailPage({ params }: PageProps) {
           )}
           
           {order.status !== 'DELIVERED' && (
-            <Button className="w-full bg-primary text-white h-16 rounded-2xl font-bold" asChild>
+            <Button className="w-full bg-primary text-white h-16 rounded-2xl font-bold shadow-xl shadow-primary/20" asChild>
               <Link href={`/orders/${order.id}/deliver`}>
                 <CheckCircle2 className="w-5 h-5 mr-2" />
                 Confirmar Entrega
               </Link>
             </Button>
-          )}
-
-          {order.status === 'DELIVERED' && (
-            <div className="bg-green-100 text-green-700 h-16 rounded-2xl flex items-center justify-center font-bold gap-2">
-              <CheckCircle2 className="w-6 h-6" />
-              Entrega Completada
-            </div>
           )}
         </section>
       </main>

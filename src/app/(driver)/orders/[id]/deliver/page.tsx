@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, CheckCircle2, ShieldCheck, MapPin } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { SignaturePad } from '@/components/SignaturePad';
 import { useToast } from "@/hooks/use-toast";
@@ -36,12 +36,17 @@ export default function DeliveryConfirmationPage() {
 
     startTransition(async () => {
       try {
-        await completeDelivery(parseInt(id as string), receiverName, signature);
+        await completeDelivery(
+          parseInt(id as string), 
+          receiverName, 
+          signature,
+          observations
+        );
         toast({
           title: "¡Entrega Exitosa!",
           description: `El pedido ha sido marcado como entregado.`
         });
-        router.push('/dashboard');
+        router.push(`/orders/${id}`);
       } catch (error) {
         toast({
           variant: "destructive",
@@ -104,7 +109,7 @@ export default function DeliveryConfirmationPage() {
 
         <Button 
           type="submit" 
-          className="w-full btn-large bg-primary hover:bg-primary/90"
+          className="w-full btn-large bg-primary hover:bg-primary/90 shadow-lg"
           disabled={isPending}
         >
           {isPending ? "Procesando..." : (
