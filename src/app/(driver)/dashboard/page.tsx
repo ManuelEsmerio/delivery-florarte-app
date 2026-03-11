@@ -22,7 +22,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const session = await getDriverSession();
   const driverId = session.id;
 
-  // Filtro estricto: Solo permitimos 'OUT_FOR_DELIVERY' (En Ruta) y 'DELIVERED' (Entregado)
+  // Filtro exclusivo: Solo 'En Ruta' y 'Entregado'
   const filterStatus = activeStatus === 'DELIVERED' ? 'DELIVERED' : 'OUT_FOR_DELIVERY';
 
   const orders = await prisma.order.findMany({
@@ -72,14 +72,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       </header>
 
       <div className="px-6 pb-4 pt-4 space-y-4">
-        <div className="relative group">
-          <Search className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
-          <input 
-            placeholder="Buscar por # de orden..." 
-            className="w-full pl-10 pr-3 py-3 border-none bg-white rounded-xl text-sm shadow-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-          />
-        </div>
-
         <Tabs defaultValue={filterStatus} className="w-full">
           <TabsList className="w-full bg-white shadow-sm p-1 h-12 border-none rounded-xl">
             <TabsTrigger value="OUT_FOR_DELIVERY" asChild className="flex-1 text-xs font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-white">
@@ -120,12 +112,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                       <MapPin className="h-4 w-4 mr-2 mt-0.5 text-slate-400 shrink-0" />
                       <span className="line-clamp-1">{order.orderAddress?.formattedAddress || "Dirección no disponible"}</span>
                     </div>
-                    <div className="flex items-center text-sm text-slate-600">
-                      <Clock className="h-4 w-4 mr-2 text-slate-400 shrink-0" />
-                      <span className="font-medium tracking-tight">
-                        {order.deliveryTimeSlot || "Sin horario especificado"}
-                      </span>
-                    </div>
                   </div>
 
                   <div className="mt-5 pt-4 border-t border-slate-50 flex justify-end">
@@ -142,7 +128,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-100 flex flex-col items-center">
             <Package className="w-12 h-12 text-slate-200 mb-4" />
             <p className="text-slate-500 text-sm font-bold">No tienes pedidos en esta categoría.</p>
-            <p className="text-slate-400 text-xs mt-1">Sincroniza para recibir nuevas rutas.</p>
           </div>
         )}
       </main>

@@ -33,15 +33,12 @@ export async function getDriverSession(): Promise<DriverSession> {
   try {
     return JSON.parse(sessionData) as DriverSession;
   } catch (e) {
-    console.error("Error al parsear la sesión");
     redirect('/login');
   }
 }
 
 /**
- * Acción de inicio de sesión validando contra la base de datos.
- * IMPORTANTE: Si obtienes error de "Table User does not exist", 
- * verifica que tu modelo User en el schema tenga @@map("users") o el nombre exacto de tu tabla.
+ * Inicio de sesión utilizando passwordHash según el esquema.
  */
 export async function loginAction(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const email = formData.get('email') as string;
@@ -56,15 +53,14 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
       where: { email },
     });
 
-    if (!user) {
+    if (!user || !user.passwordHash) {
       return { error: "Credenciales inválidas." };
     }
 
-    // Validación de contraseña con bcrypt
-    const isPasswordValid = await bcrypt.compare(password, user.password || '');
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     
-    // Fallback temporal por si aún tienes contraseñas en texto plano (remover en producción)
-    const isPlainMatch = password === user.password;
+    // Soporte temporal para contraseñas en texto plano si existen
+    const isPlainMatch = password === user.passwordHash;
 
     if (!isPasswordValid && !isPlainMatch) {
       return { error: "Credenciales inválidas." };
@@ -83,19 +79,19 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 1 semana
+      maxAge: 60 * 60 * 24 * 7,
     });
 
     return redirect('/splash');
   } catch (error) {
     if ((error as any).digest?.includes('NEXT_REDIRECT')) throw error;
-    console.error('ERROR en loginAction:', error);
-    return { error: "Error de conexión con la base de datos. Verifica los nombres de las tablas." };
+    console.error('Login Error:', error);
+    return { error: "Error al intentar iniciar sesión. Verifica la conexión." };
   }
 }
 
 /**
- * Actualiza la contraseña del usuario actual usando bcrypt.
+ * Actualiza la contraseña utilizando el campo passwordHash.
  */
 export async function updatePasswordAction(formData: FormData): Promise<ActionState> {
   const oldPassword = formData.get('oldPassword') as string;
@@ -108,28 +104,28 @@ export async function updatePasswordAction(formData: FormData): Promise<ActionSt
       where: { id: session.id }
     });
 
-    if (!user || !user.password) {
+    if (!user || !user.passwordHash) {
       return { error: "Usuario no encontrado." };
     }
 
-    const isMatch = await bcrypt.compare(oldPassword, user.password);
-    const isPlainMatch = oldPassword === user.password;
+    const isMatch = await bcrypt.compare(oldPassword, user.passwordHash);
+    const isPlainMatch = oldPassword === user.passwordHash;
 
     if (!isMatch && !isPlainMatch) {
       return { error: "La contraseña actual es incorrecta." };
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { password: hashedPassword }
+      data: { passwordHash: hashedNewPassword }
     });
 
     revalidatePath('/profile');
     return { success: true };
   } catch (error) {
-    console.error("Error al actualizar contraseña:", error);
+    console.error("Update Password Error:", error);
     return { error: "No se pudo actualizar la contraseña." };
   }
 }
