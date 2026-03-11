@@ -104,7 +104,7 @@ export default function OrderDetailPage() {
         toast({
           variant: "destructive",
           title: "Error",
-          description: "No se pudo procesar el reporte."
+          description: res.error || "No se pudo procesar el reporte."
         });
       }
     });
@@ -352,7 +352,7 @@ export default function OrderDetailPage() {
             </div>
             <div className="space-y-3">
               <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Selecciona el motivo</label>
-              <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {incidentResponses.map((resp) => (
                   <button
                     key={resp}
@@ -362,7 +362,7 @@ export default function OrderDetailPage() {
                       setIsCustomFail(false);
                     }}
                     className={cn(
-                      "w-full p-4 rounded-2xl text-left text-xs font-bold transition-all border-2",
+                      "p-3 rounded-2xl text-left text-[11px] font-bold transition-all border-2 h-full flex items-center",
                       failComment === resp && !isCustomFail
                         ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-200" 
                         : "bg-white border-slate-100 text-slate-600 hover:border-red-200"
@@ -378,7 +378,7 @@ export default function OrderDetailPage() {
                     if (incidentResponses.includes(failComment)) setFailComment('');
                   }}
                   className={cn(
-                    "w-full p-4 rounded-2xl text-left text-xs font-bold transition-all border-2",
+                    "col-span-2 p-3 rounded-2xl text-left text-[11px] font-bold transition-all border-2 h-full flex items-center",
                     isCustomFail
                       ? "bg-slate-900 border-slate-900 text-white shadow-lg"
                       : "bg-white border-slate-100 text-slate-400"

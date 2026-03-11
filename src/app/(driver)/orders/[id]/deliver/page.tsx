@@ -47,22 +47,26 @@ export default function DeliveryConfirmationPage() {
     
     startTransition(async () => {
       try {
-        await completeDelivery(
+        const res = await completeDelivery(
           parseInt(id as string), 
           receiverName, 
           signature,
           observations
         );
-        toast({
-          title: "¡Entrega Exitosa!",
-          description: `El pedido ha sido marcado como entregado.`
-        });
-        router.replace(`/orders/${id}?driverId=${driverId}`);
-      } catch (error) {
+        if (res.success) {
+          toast({
+            title: "¡Entrega Exitosa!",
+            description: `El pedido ha sido marcado como entregado.`
+          });
+          router.replace(`/orders/${id}?driverId=${driverId}`);
+        } else {
+          throw new Error(res.error);
+        }
+      } catch (error: any) {
         toast({
           variant: "destructive",
           title: "Error",
-          description: "No se pudo completar la entrega."
+          description: error.message || "No se pudo completar la entrega."
         });
       }
     });
@@ -109,7 +113,7 @@ export default function DeliveryConfirmationPage() {
 
           <div className="space-y-3">
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Observaciones de entrega</Label>
-            <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {quickResponses.map((resp) => (
                 <button
                   key={resp}
@@ -119,7 +123,7 @@ export default function DeliveryConfirmationPage() {
                     setIsCustom(false);
                   }}
                   className={cn(
-                    "w-full p-4 rounded-2xl text-left text-xs font-bold transition-all border-2",
+                    "p-3 rounded-2xl text-left text-[11px] font-bold transition-all border-2 h-full flex items-center",
                     observations === resp && !isCustom
                       ? "bg-primary border-primary text-white shadow-lg shadow-primary/20" 
                       : "bg-white border-slate-100 text-slate-600 hover:border-primary/20"
@@ -135,13 +139,13 @@ export default function DeliveryConfirmationPage() {
                   if (quickResponses.includes(observations)) setObservations('');
                 }}
                 className={cn(
-                  "w-full p-4 rounded-2xl text-left text-xs font-bold transition-all border-2",
+                  "p-3 rounded-2xl text-left text-[11px] font-bold transition-all border-2 h-full flex items-center",
                   isCustom
                     ? "bg-slate-900 border-slate-900 text-white"
                     : "bg-white border-slate-100 text-slate-400"
                 )}
               >
-                Otro (Escribir observación)
+                Otro (Escribir detalle)
               </button>
             </div>
 
