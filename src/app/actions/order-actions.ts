@@ -1,4 +1,3 @@
-
 'use server';
 
 import { prisma } from '@/lib/prisma';
@@ -43,7 +42,7 @@ export async function completeDelivery(
 ) {
   let finalSignatureUrl = null;
 
-  // Subir firma a Cloudinary si existe
+  // Subir firma a Cloudinary si existe y es un base64 válido
   if (signatureBase64 && signatureBase64.startsWith('data:image')) {
     try {
       const uploadResult = await cloudinary.uploader.upload(signatureBase64, {
@@ -52,13 +51,16 @@ export async function completeDelivery(
         public_id: `signature_${Date.now()}`
       });
       finalSignatureUrl = uploadResult.secure_url;
+      console.log(`DEBUG [Cloudinary]: Imagen subida con éxito: ${finalSignatureUrl}`);
     } catch (error) {
-      console.error('ERROR [Cloudinary]:', error);
+      console.error('ERROR [Cloudinary]: No se pudo subir la firma:', error);
+      // En caso de error, podríamos guardar el base64 temporalmente o dejarlo nulo
+      finalSignatureUrl = signatureBase64; 
     }
   }
 
   try {
-    // Actualización en la base de datos
+    // Actualización en la base de datos usando los campos correctos del esquema
     await prisma.order.update({
       where: { id: orderId },
       data: {
