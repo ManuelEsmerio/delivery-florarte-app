@@ -14,7 +14,8 @@ import {
   User,
   Store,
   Map,
-  CreditCard
+  CreditCard,
+  Mail
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -54,6 +55,19 @@ export default async function OrderDetailPage({ params }: PageProps) {
     };
     return labels[status] || status;
   };
+
+  // Lógica para el Remitente (Quien envía)
+  const senderInfo = order.isGuest 
+    ? {
+        name: order.guestName || "Invitado",
+        email: order.guestEmail || "Sin email",
+        phone: order.guestPhone || null
+      }
+    : {
+        name: order.user?.name || "Usuario",
+        email: order.user?.email || "Sin email",
+        phone: order.user?.phone || null
+      };
 
   return (
     <div className="flex flex-col min-h-screen animate-in fade-in duration-300 bg-background">
@@ -108,19 +122,28 @@ export default async function OrderDetailPage({ params }: PageProps) {
             </div>
           )}
 
+          {/* Sección de Remitente (Quien compra) */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between card-shadow">
             <div className="flex items-center gap-4">
               <div className="size-12 bg-slate-50 rounded-xl flex items-center justify-center">
                 <Store className="w-6 h-6 text-slate-400" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Remitente (Tienda)</p>
-                <h3 className="font-bold text-sm leading-tight">Almacén Central</h3>
-                <p className="text-[10px] text-slate-500">Logística Interna</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Remitente (Cliente)</p>
+                <h3 className="font-bold text-sm leading-tight">{senderInfo.name}</h3>
+                <p className="text-[10px] text-slate-500">{senderInfo.email}</p>
               </div>
             </div>
+            {senderInfo.phone && (
+              <Button variant="ghost" size="icon" asChild className="size-10 rounded-full bg-slate-100 text-slate-600">
+                <a href={`tel:${senderInfo.phone}`}>
+                  <Phone className="w-4 h-4" />
+                </a>
+              </Button>
+            )}
           </div>
 
+          {/* Sección de Destinatario (Quien recibe) */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between card-shadow">
             <div className="flex items-center gap-4">
               <div className="size-12 bg-primary/10 rounded-xl flex items-center justify-center">
