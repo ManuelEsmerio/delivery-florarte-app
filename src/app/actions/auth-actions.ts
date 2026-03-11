@@ -4,6 +4,7 @@
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export type ActionState = {
   error?: string;
@@ -18,15 +19,26 @@ export type DriverSession = {
 };
 
 /**
- * Obtiene la sesión actual del repartidor desde las cookies.
+ * Obtiene la sesión actual del repartidor desde las cookies de forma segura.
  */
 export async function getDriverSession(): Promise<DriverSession | null> {
-  const cookieStore = await cookies();
-  const session = cookieStore.get('driver_session');
-  if (!session) return null;
   try {
-    return JSON.parse(session.value) as DriverSession;
-  } catch {
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('driver_session');
+    
+    if (!sessionCookie || !sessionCookie.value) {
+      return null;
+    }
+
+    const session = JSON.parse(sessionCookie.value) as DriverSession;
+    
+    // Verificación adicional básica
+    if (!session.id || session.role !== 'DELIVERY') {
+      return null;
+    }
+
+    return session;
+  } catch (error) {
     return null;
   }
 }
@@ -62,6 +74,8 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
     }
 
     const cookieStore = await cookies();
+    
+    // Establecemos la cookie antes de redirigir
     cookieStore.set('driver_session', JSON.stringify({
       id: user.id,
       name: user.name,
@@ -70,13 +84,25 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
     }), { 
       httpOnly: true, 
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 días
       path: '/'
     });
 
-    return { success: true };
   } catch (error) {
     console.error('Login error:', error);
-    return { error: 'Error de conexión con la base de datos.' };
+    return { error: 'Error de conexión con el servidor.' };
   }
+
+  // Redirigimos directamente desde el servidor para asegurar que la cookie se procese
+  redirect('/splash');
+}
+
+/**
+ * Cierra la sesión del repartidor eliminando la cookie.
+ */
+export async function logoutAction() {
+  const cookieStore = await cookies();
+  cookieStore.delete('driver_session');
+  redirect('/login');
 }

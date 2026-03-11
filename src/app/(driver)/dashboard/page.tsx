@@ -10,25 +10,31 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-// Forzamos a que la página sea dinámica para que siempre verifique la sesión
+// Forzamos a que la página sea dinámica para validar sesión en cada carga
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function DashboardPage() {
   const session = await getDriverSession();
-  if (!session) redirect('/login');
+  
+  if (!session) {
+    redirect('/login');
+  }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
+  // Consulta de órdenes asignadas al repartidor para el día de hoy
   const orders = await prisma.order.findMany({
     where: {
       deliveryDriverId: session.id,
       deliveryDate: {
         gte: today,
         lt: tomorrow
-      }
+      },
+      isDeleted: false
     },
     include: {
       orderAddress: true,
@@ -53,36 +59,44 @@ export default async function DashboardPage() {
     switch(status) {
       case 'DELIVERED': return 'bg-green-100 text-green-700';
       case 'OUT_FOR_DELIVERY': return 'bg-primary text-white';
+      case 'CANCELLED': return 'bg-red-100 text-red-700';
       default: return 'bg-slate-100 text-slate-600';
     }
   };
 
   return (
-    <div className="flex flex-col min-h-full animate-in fade-in duration-500">
+    <div className="flex flex-col min-h-full animate-in fade-in duration-500 pb-24">
       <header className="pt-10 px-6 pb-2 bg-white/50">
-        <h1 className="text-2xl font-bold text-slate-900">Mis Entregas</h1>
-        <p className="text-sm text-slate-500 font-medium mt-1 uppercase">
-          {format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}
-        </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Hola, {session.name.split(' ')[0]}</h1>
+            <p className="text-sm text-slate-500 font-medium mt-1 uppercase">
+              {format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}
+            </p>
+          </div>
+          <div className="size-10 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold">
+            {session.name.charAt(0)}
+          </div>
+        </div>
       </header>
 
       <div className="px-6 pb-6 sticky top-0 bg-background/80 backdrop-blur-md z-10 pt-4 space-y-4">
         <div className="relative group">
           <Search className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
           <input 
-            placeholder="Buscar pedido..." 
-            className="w-full pl-10 pr-3 py-3 border-none bg-white rounded-lg text-sm shadow-sm"
+            placeholder="Buscar por cliente o ID..." 
+            className="w-full pl-10 pr-3 py-3 border-none bg-white rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-primary/20 outline-none"
           />
         </div>
 
-        <Tabs defaultValue="all" className="w-full">
+        <Tabs defaultValue="today" className="w-full">
           <TabsList className="w-full bg-white/50 p-1 h-11 border-none shadow-sm">
-            <TabsTrigger value="all" className="flex-1 text-[10px] font-bold uppercase tracking-wider">Hoy ({orders.length})</TabsTrigger>
+            <TabsTrigger value="today" className="flex-1 text-[10px] font-bold uppercase tracking-wider">Mis Entregas ({orders.length})</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
-      <main className="flex-1 px-6 pb-28 space-y-5">
+      <main className="flex-1 px-6 space-y-5">
         {orders.length > 0 ? (
           orders.map((order, index) => (
             <Link 
@@ -91,17 +105,17 @@ export default async function DashboardPage() {
               className="block animate-in fade-in slide-in-from-bottom-4 duration-500"
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              <Card className="rounded-lg card-shadow border border-slate-100 hover:scale-[1.02] transition-all">
+              <Card className="rounded-2xl border-none shadow-sm hover:shadow-md transition-all active:scale-[0.98] bg-white overflow-hidden">
                 <CardContent className="p-5">
                   <div className="flex justify-between items-start mb-1">
                     <div>
-                      <h2 className="text-lg font-bold text-slate-900">ORD-{order.id}</h2>
-                      <p className="text-primary font-semibold text-sm">
+                      <h2 className="text-lg font-black text-slate-900">ORD-{order.id}</h2>
+                      <p className="text-primary font-bold text-sm">
                         {order.orderAddress?.recipientName || order.guestName || "Cliente"}
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                      <Badge className={`text-[10px] font-black uppercase px-3 py-1 ${getStatusColor(order.status)}`}>
+                      <Badge className={`text-[10px] font-black uppercase px-3 py-1 border-none ${getStatusColor(order.status)}`}>
                         {getStatusLabel(order.status)}
                       </Badge>
                       {order.dedication && (
@@ -124,9 +138,9 @@ export default async function DashboardPage() {
                     </div>
                   </div>
 
-                  <div className="mt-5 pt-4 border-t border-slate-100 flex justify-end">
-                    <div className="text-primary text-sm font-bold flex items-center">
-                      Ver Detalles
+                  <div className="mt-5 pt-4 border-t border-slate-50 flex justify-end">
+                    <div className="text-primary text-xs font-black uppercase tracking-widest flex items-center">
+                      Gestionar Pedido
                       <ChevronRight className="h-4 w-4 ml-1" />
                     </div>
                   </div>
@@ -135,9 +149,10 @@ export default async function DashboardPage() {
             </Link>
           ))
         ) : (
-          <div className="text-center py-20 bg-white rounded-lg border border-slate-100">
+          <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-100">
             <Package className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-slate-500 text-sm font-medium">No hay entregas para hoy.</p>
+            <p className="text-slate-500 text-sm font-bold">Sin entregas para hoy.</p>
+            <p className="text-slate-400 text-xs mt-1">¡Buen trabajo, disfruta el descanso!</p>
           </div>
         )}
       </main>

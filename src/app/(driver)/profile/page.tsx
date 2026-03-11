@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,27 +16,28 @@ import {
   Truck
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { logoutAction } from '@/app/actions/auth-actions';
 
 export default function ProfilePage() {
   const router = useRouter();
   const { toast } = useToast();
   const [showPasswordForm, setShowPasswordForm] = useState(false);
 
-  const handleLogout = () => {
-    toast({ title: "Logged Out", description: "You have been securely signed out." });
-    router.push('/login');
+  const handleLogout = async () => {
+    await logoutAction();
+    toast({ title: "Sesión cerrada", description: "Has salido correctamente del sistema." });
   };
 
   const handlePasswordChange = (e: React.FormEvent) => {
     e.preventDefault();
-    toast({ title: "Password Updated", description: "Your credentials have been changed successfully." });
+    toast({ title: "Contraseña actualizada", description: "Tus credenciales han sido cambiadas con éxito." });
     setShowPasswordForm(false);
   };
 
   return (
-    <div className="p-6 pb-24 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="p-6 pb-32 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold animate-in slide-in-from-left-4 duration-500">Account</h1>
+        <h1 className="text-2xl font-black animate-in slide-in-from-left-4 duration-500">Mi Perfil</h1>
         <Button variant="ghost" size="icon" className="hover:rotate-45 transition-transform duration-300">
           <Settings className="w-6 h-6 text-muted-foreground" />
         </Button>
@@ -44,20 +46,20 @@ export default function ProfilePage() {
       {/* Driver Identity Card */}
       <section className="bg-primary rounded-3xl p-6 text-white shadow-xl shadow-primary/20 relative overflow-hidden animate-in zoom-in-95 duration-500 delay-100">
         <div className="relative z-10 flex items-center gap-4">
-          <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
+          <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/30">
             <User className="w-10 h-10" />
           </div>
           <div>
-            <h2 className="text-xl font-bold">John Doe</h2>
-            <p className="text-white/70 text-sm font-medium">Employee ID: DRV-4492</p>
+            <h2 className="text-xl font-bold">Repartidor</h2>
+            <p className="text-white/70 text-xs font-bold uppercase tracking-widest">Estado: Activo</p>
           </div>
         </div>
         <div className="mt-6 flex gap-3 relative z-10">
-          <div className="bg-white/10 px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-sm">
-            Active Driver
+          <div className="bg-white/10 px-3 py-1.5 rounded-full text-[10px] font-black uppercase backdrop-blur-sm border border-white/10">
+            Logística Central
           </div>
-          <div className="bg-white/10 px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-sm">
-            Vehicle: Transit #82
+          <div className="bg-white/10 px-3 py-1.5 rounded-full text-[10px] font-black uppercase backdrop-blur-sm border border-white/10">
+            DriveMate v2.4
           </div>
         </div>
         <Truck className="absolute -bottom-4 -right-4 w-32 h-32 text-white/10 rotate-12 transition-transform duration-1000 hover:rotate-0" />
@@ -66,13 +68,13 @@ export default function ProfilePage() {
       {/* Stats Quick View */}
       <div className="grid grid-cols-3 gap-4 animate-in slide-in-from-bottom-4 duration-500 delay-200">
         {[
-          { label: 'Deliveries', value: '42' },
-          { label: 'Rating', value: '4.9' },
-          { label: 'On Time', value: '98%' },
+          { label: 'Entregas', value: '0' },
+          { label: 'Rating', value: '5.0' },
+          { label: 'Eficacia', value: '100%' },
         ].map((stat, i) => (
           <div key={i} className="bg-white p-4 rounded-2xl text-center shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105">
             <p className="text-2xl font-black text-primary">{stat.value}</p>
-            <p className="text-[10px] uppercase font-bold text-muted-foreground">{stat.label}</p>
+            <p className="text-[9px] uppercase font-black text-muted-foreground tracking-tighter">{stat.label}</p>
           </div>
         ))}
       </div>
@@ -84,10 +86,10 @@ export default function ProfilePage() {
           className="w-full bg-white p-5 rounded-2xl flex items-center justify-between shadow-sm active:scale-[0.98] transition-all hover:bg-slate-50 group"
         >
           <div className="flex items-center gap-3">
-            <div className="bg-blue-50 p-2 rounded-lg text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+            <div className="bg-primary/10 p-2 rounded-lg text-primary group-hover:bg-primary group-hover:text-white transition-colors">
               <KeyRound className="w-5 h-5" />
             </div>
-            <span className="font-bold">Security & Password</span>
+            <span className="font-bold text-sm">Seguridad y Acceso</span>
           </div>
           <ChevronRight className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${showPasswordForm ? 'rotate-90' : ''}`} />
         </button>
@@ -95,23 +97,23 @@ export default function ProfilePage() {
         {showPasswordForm && (
           <form onSubmit={handlePasswordChange} className="bg-white p-6 rounded-2xl shadow-inner border-2 border-slate-50 space-y-4 animate-in slide-in-from-top-4 duration-300 overflow-hidden">
             <div className="space-y-2">
-              <Label htmlFor="old-pass">Current Password</Label>
+              <Label htmlFor="old-pass">Contraseña Actual</Label>
               <Input id="old-pass" type="password" required className="h-11 transition-all focus:scale-[1.01]" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="new-pass">New Password</Label>
+              <Label htmlFor="new-pass">Nueva Contraseña</Label>
               <Input id="new-pass" type="password" required className="h-11 transition-all focus:scale-[1.01]" />
             </div>
-            <Button type="submit" className="w-full bg-primary h-12 shadow-md hover:shadow-lg transition-all">Update Password</Button>
+            <Button type="submit" className="w-full bg-primary h-12 shadow-md hover:shadow-lg transition-all font-bold">Actualizar Contraseña</Button>
           </form>
         )}
 
         <button className="w-full bg-white p-5 rounded-2xl flex items-center justify-between shadow-sm active:scale-[0.98] transition-all hover:bg-slate-50 group">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-50 p-2 rounded-lg text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+            <div className="bg-primary/10 p-2 rounded-lg text-primary group-hover:bg-primary group-hover:text-white transition-colors">
               <Shield className="w-5 h-5" />
             </div>
-            <span className="font-bold">Privacy Policy</span>
+            <span className="font-bold text-sm">Privacidad</span>
           </div>
           <ChevronRight className="w-5 h-5 text-muted-foreground" />
         </button>
@@ -124,7 +126,7 @@ export default function ProfilePage() {
             <div className="bg-red-100 p-2 rounded-lg group-hover:bg-red-600 group-hover:text-white transition-colors">
               <LogOut className="w-5 h-5" />
             </div>
-            <span className="font-bold">Log Out</span>
+            <span className="font-bold text-sm">Cerrar Sesión</span>
           </div>
         </button>
       </div>
