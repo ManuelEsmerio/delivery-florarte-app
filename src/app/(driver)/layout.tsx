@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Home, User, QrCode } from 'lucide-react';
+import { Home, User, Map } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Suspense } from 'react';
 
@@ -15,6 +15,11 @@ function DriverNav() {
   // Función para mantener el driverId en todos los enlaces de navegación
   const getUrl = (base: string) => {
     return driverId ? `${base}?driverId=${driverId}` : base;
+  };
+
+  const openGoogleMaps = () => {
+    // Abre Google Maps en una nueva pestaña
+    window.open('https://www.google.com/maps', '_blank');
   };
 
   return (
@@ -31,8 +36,12 @@ function DriverNav() {
       </Link>
 
       <div className="relative -top-6 shrink-0">
-        <button className="size-16 bg-primary rounded-full shadow-xl shadow-primary/40 flex items-center justify-center text-white border-4 border-background active:scale-90 transition-transform">
-          <QrCode className="h-8 w-8" />
+        <button 
+          onClick={openGoogleMaps}
+          className="size-16 bg-primary rounded-full shadow-xl shadow-primary/40 flex items-center justify-center text-white border-4 border-background active:scale-90 transition-transform"
+          title="Abrir Google Maps"
+        >
+          <Map className="h-8 w-8" />
         </button>
       </div>
 

@@ -18,7 +18,6 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * Obtiene las órdenes por driverId y status.
- * Usado para el filtrado rápido en el cliente.
  */
 export async function getOrdersByStatus(driverId: number, status: 'OUT_FOR_DELIVERY' | 'DELIVERED') {
   try {
@@ -35,7 +34,6 @@ export async function getOrdersByStatus(driverId: number, status: 'OUT_FOR_DELIV
       },
       take: 50
     });
-    // Convertimos objetos complejos (como Decimal si existieran) a tipos primitivos para el cliente
     return JSON.parse(JSON.stringify(orders));
   } catch (error) {
     console.error('Error fetching orders:', error);
@@ -57,6 +55,58 @@ export async function updateOrderStatus(orderId: number, status: any) {
   } catch (error) {
     console.error('Update Status Error:', error);
     return { success: false, error: 'No se pudo actualizar el estado' };
+  }
+}
+
+/**
+ * Reporta un intento de entrega fallido (No hay nadie).
+ */
+export async function reportFailedDelivery(orderId: number, comment: string) {
+  try {
+    const order = await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: 'FAILED' as any, // Marcamos como fallido para saltarlo
+        deliveryNotes: comment,
+      },
+      include: {
+        user: true,
+      }
+    });
+
+    const customerEmail = (order as any).isGuest ? (order as any).guestEmail : order.user?.email;
+    const customerName = (order as any).isGuest ? ((order as any).guestName || 'Cliente') : (order.user?.name || 'Cliente');
+
+    if (customerEmail && process.env.RESEND_API_KEY) {
+      await resend.emails.send({
+        from: 'DriveMate <notificaciones@tu-dominio.com>',
+        to: customerEmail,
+        subject: `Intento de entrega fallido - Pedido #${order.id}`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; padding: 20px;">
+            <h2 style="color: #ec5b13;">Lo sentimos, no pudimos entregarte</h2>
+            <p>Hola <strong>${customerName}</strong>,</p>
+            <p>Hemos intentado entregar tu pedido #${order.id} hoy a las ${new Date().toLocaleTimeString()}.</p>
+            <div style="background: #fff4f0; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ec5b13;">
+              <p style="margin: 0; font-weight: bold;">Nota del repartidor:</p>
+              <p style="margin: 5px 0 0 0; font-style: italic;">"${comment}"</p>
+            </div>
+            <p style="font-weight: bold; color: #555;">
+              El repartidor tuvo 10 min llamando a la puerta pero no recibió respuesta y tu producto será regresado a la tienda.
+            </p>
+            <p style="font-size: 12px; color: #999; margin-top: 30px;">
+              Si tienes dudas, por favor contacta con soporte.
+            </p>
+          </div>
+        `
+      });
+    }
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Failed Delivery Report Error:', error);
+    return { success: false, error: 'No se pudo reportar la incidencia.' };
   }
 }
 
@@ -89,7 +139,6 @@ export async function completeDelivery(
       data: {
         status: 'DELIVERED',
         deliveredAt: new Date(),
-        // Usamos as any para campos que sabemos existen en la DB según el flujo previo
         ...({
           proofOfDeliverySignature: finalSignatureUrl,
           proofOfDeliveryReceiver: receiverName,
@@ -103,7 +152,6 @@ export async function completeDelivery(
       }
     });
 
-    // Envío de correo con Resend
     const customerEmail = updatedOrder.isGuest ? (updatedOrder as any).guestEmail : updatedOrder.user?.email;
     const customerName = updatedOrder.isGuest ? ((updatedOrder as any).guestName || 'Cliente') : (updatedOrder.user?.name || 'Cliente');
 
