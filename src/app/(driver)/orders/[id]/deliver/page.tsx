@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useState, useTransition } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,9 +15,11 @@ import { completeDelivery } from '@/app/actions/order-actions';
 
 export default function DeliveryConfirmationPage() {
   const { id } = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const driverId = searchParams.get('driverId');
 
   const [receiverName, setReceiverName] = useState('');
   const [signature, setSignature] = useState('');
@@ -46,7 +49,8 @@ export default function DeliveryConfirmationPage() {
           title: "¡Entrega Exitosa!",
           description: `El pedido ha sido marcado como entregado.`
         });
-        router.push(`/orders/${id}`);
+        // Redirigimos al detalle con replace para que no pueda volver a este formulario
+        router.replace(`/orders/${id}?driverId=${driverId}`);
       } catch (error) {
         toast({
           variant: "destructive",
@@ -61,7 +65,7 @@ export default function DeliveryConfirmationPage() {
     <div className="flex flex-col min-h-screen animate-in fade-in duration-300">
       <div className="p-4 bg-white border-b sticky top-0 z-10 flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
-          <Link href={`/orders/${id}`}>
+          <Link href={`/orders/${id}?driverId=${driverId}`}>
             <ArrowLeft className="w-6 h-6" />
           </Link>
         </Button>

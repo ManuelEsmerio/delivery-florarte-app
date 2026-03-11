@@ -12,6 +12,7 @@ import {
   Store,
   FileText,
   AlertTriangle,
+  Home
 } from 'lucide-react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
@@ -91,7 +92,6 @@ export default function OrderDetailPage() {
           description: "Se ha guardado la nota de incidencia."
         });
         setShowFailDialog(false);
-        // Actualizamos localmente para mostrar la nota de inmediato
         setOrder((prev: any) => ({ ...prev, deliveryNotes: failComment }));
       } else {
         toast({
@@ -101,6 +101,10 @@ export default function OrderDetailPage() {
         });
       }
     });
+  };
+
+  const goToDashboard = () => {
+    router.push(`/dashboard?driverId=${driverIdStr}`);
   };
 
   if (isLoading) return (
@@ -114,8 +118,8 @@ export default function OrderDetailPage() {
     <div className="p-8 text-center flex flex-col items-center justify-center min-h-screen">
       <AlertTriangle className="size-12 text-red-500 mb-4" />
       <h2 className="text-xl font-black">Pedido no encontrado</h2>
-      <Button asChild className="mt-6 rounded-xl bg-primary" onClick={() => router.back()}>
-        <span>Regresar</span>
+      <Button asChild className="mt-6 rounded-xl bg-primary" onClick={goToDashboard}>
+        <span>Regresar al Inicio</span>
       </Button>
     </div>
   );
@@ -132,28 +136,36 @@ export default function OrderDetailPage() {
         phone: order.user?.phone || null
       };
 
+  const isDelivered = order.status === 'DELIVERED';
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-50/30">
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md px-4 py-4 border-b border-slate-100 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
-            <ArrowLeft className="w-6 h-6" />
-          </Button>
+          {!isDelivered ? (
+            <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
+              <ArrowLeft className="w-6 h-6" />
+            </Button>
+          ) : (
+            <Button variant="ghost" size="icon" onClick={goToDashboard} className="rounded-full text-primary">
+              <Home className="w-6 h-6" />
+            </Button>
+          )}
           <div>
             <h1 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Detalle de Orden</h1>
             <p className="text-lg font-black leading-none text-slate-900">#{order.id}</p>
           </div>
         </div>
         <Badge className={`border-none text-[10px] font-black uppercase px-3 py-1 rounded-xl ${
-          order.status === 'DELIVERED' ? 'bg-green-500 text-white' : 
+          isDelivered ? 'bg-green-500 text-white' : 
           order.deliveryNotes ? 'bg-amber-500 text-white' : 'bg-primary text-white'
         }`}>
-          {order.status === 'DELIVERED' ? 'Entregado' : order.deliveryNotes ? 'Incidencia' : 'En Ruta'}
+          {isDelivered ? 'Entregado' : order.deliveryNotes ? 'Incidencia' : 'En Ruta'}
         </Badge>
       </header>
 
       <main className="flex-1 pb-32">
-        {order.status !== 'DELIVERED' && (
+        {!isDelivered && (
           <section className="relative h-60 w-full overflow-hidden mb-6">
             <img 
               src={`https://picsum.photos/seed/${order.id}/800/400`} 
@@ -180,8 +192,8 @@ export default function OrderDetailPage() {
         )}
 
         <div className="px-6 space-y-4">
-          {order.status === 'DELIVERED' && (
-            <div className="bg-green-50 p-6 rounded-[2rem] border-2 border-green-100 space-y-4">
+          {isDelivered && (
+            <div className="bg-green-50 p-6 rounded-[2rem] border-2 border-green-100 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
               <div className="flex items-center gap-2 text-green-700">
                 <CheckCircle2 className="w-6 h-6" />
                 <h3 className="font-black uppercase tracking-tight text-sm">Entrega Exitosa</h3>
@@ -201,7 +213,7 @@ export default function OrderDetailPage() {
             </div>
           )}
 
-          {order.deliveryNotes && order.status !== 'DELIVERED' && (
+          {order.deliveryNotes && !isDelivered && (
             <div className="bg-amber-50 p-6 rounded-[2rem] border-2 border-amber-100 space-y-4">
               <div className="flex items-center gap-2 text-amber-700">
                 <AlertTriangle className="w-6 h-6" />
@@ -281,7 +293,7 @@ export default function OrderDetailPage() {
             </div>
           </section>
 
-          {order.status !== 'DELIVERED' && (
+          {!isDelivered ? (
             <section className="pt-8 flex flex-col gap-3">
               <Button 
                 onClick={() => setShowFailDialog(true)}
@@ -297,6 +309,16 @@ export default function OrderDetailPage() {
                   <CheckCircle2 className="size-5 mr-2" />
                   Confirmar Entrega
                 </Link>
+              </Button>
+            </section>
+          ) : (
+            <section className="pt-12 pb-8">
+              <Button 
+                onClick={goToDashboard}
+                className="w-full bg-slate-900 text-white h-16 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl"
+              >
+                <Home className="size-5 mr-2" />
+                Volver al Dashboard
               </Button>
             </section>
           )}
