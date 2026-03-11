@@ -303,46 +303,46 @@ export default function OrderDetailPage() {
       </main>
 
       <Dialog open={showFailDialog} onOpenChange={setShowFailDialog}>
-        <DialogContent className="rounded-[2.5rem] border-none p-8 max-w-[90%] mx-auto bg-white">
-          <DialogHeader>
+        <DialogContent className="rounded-[2.5rem] border-none p-6 w-[92%] max-w-[400px] bg-white animate-in zoom-in-95 duration-200">
+          <DialogHeader className="text-left">
             <DialogTitle className="text-xl font-black flex items-center gap-2 text-red-600">
               <AlertTriangle className="size-6" />
-              Reportar Incidencia
+              Incidencia
             </DialogTitle>
-            <DialogDescription className="text-sm font-bold text-slate-500 pt-2 leading-relaxed">
-              Confirma que has intentado contactar al cliente y no hubo respuesta tras 10 minutos de espera.
+            <DialogDescription className="text-xs font-bold text-slate-500 pt-2 leading-relaxed">
+              Confirma que intentaste contactar al cliente y no hubo respuesta tras 10 min de espera.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100">
               <p className="text-[10px] text-amber-800 font-black uppercase leading-relaxed">
-                Aviso: Se enviará un correo notificando que el pedido regresará a tienda por falta de respuesta.
+                Aviso: Se enviará correo notificando que el pedido regresará a tienda.
               </p>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Comentario del repartidor</label>
+              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Motivo del fallo</label>
               <Textarea 
-                placeholder="Indica el motivo detallado..." 
+                placeholder="Ej. Nadie respondió al timbre..." 
                 value={failComment}
                 onChange={(e) => setFailComment(e.target.value)}
-                className="rounded-2xl min-h-[100px] border-slate-200 focus:ring-primary font-medium"
+                className="rounded-2xl min-h-[100px] border-slate-200 focus:ring-primary font-medium text-sm"
               />
             </div>
           </div>
 
-          <DialogFooter className="flex flex-col gap-3 sm:flex-col">
+          <DialogFooter className="flex flex-col gap-2 sm:flex-col">
             <Button 
               onClick={handleReportFail}
               disabled={isPending}
-              className="w-full bg-red-600 hover:bg-red-700 h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-white"
+              className="w-full bg-red-600 hover:bg-red-700 h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-white shadow-lg shadow-red-200"
             >
-              {isPending ? "Procesando..." : "Confirmar Incidencia"}
+              {isPending ? "Procesando..." : "Confirmar Reporte"}
             </Button>
             <Button 
               variant="ghost" 
               onClick={() => setShowFailDialog(false)}
-              className="w-full font-black text-slate-400 text-xs uppercase tracking-widest"
+              className="w-full font-black text-slate-400 text-xs uppercase tracking-widest h-10"
             >
               Cancelar
             </Button>
