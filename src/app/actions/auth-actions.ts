@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import * as jose from 'jose';
 
 export type ActionState = {
   error?: string;
@@ -18,52 +19,62 @@ export type DriverSession = {
   email: string;
 };
 
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET || 'fallback_secret_key_drivemate_2024_secure_min_32_chars'
+);
+
 /**
- * Codifica el objeto de sesión para evitar problemas de formato en la cookie.
+ * Firma un JWT con los datos del repartidor.
  */
-function encodeSession(data: DriverSession): string {
-  return Buffer.from(JSON.stringify(data)).toString('base64');
+async function encrypt(payload: DriverSession) {
+  return await new jose.SignJWT(payload)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('7d')
+    .sign(JWT_SECRET);
 }
 
 /**
- * Decodifica el "token" de la cookie.
+ * Verifica y decodifica el JWT.
  */
-function decodeSession(token: string): DriverSession | null {
+async function decrypt(token: string): Promise<DriverSession | null> {
   try {
-    const decoded = Buffer.from(token, 'base64').toString('utf8');
-    return JSON.parse(decoded) as DriverSession;
+    const { payload } = await jose.jwtVerify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
+    });
+    return payload as DriverSession;
   } catch (error) {
     return null;
   }
 }
 
 /**
- * Obtiene la sesión actual del repartidor de forma segura.
+ * Obtiene la sesión actual del repartidor verificando el JWT.
  */
 export async function getDriverSession(): Promise<DriverSession | null> {
   try {
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('driver_session');
+    const sessionToken = cookieStore.get('driver_session')?.value;
     
-    if (!sessionCookie || !sessionCookie.value) {
+    if (!sessionToken) {
       return null;
     }
 
-    const session = decodeSession(sessionCookie.value);
+    const session = await decrypt(sessionToken);
     
-    if (!session || !session.id || session.role !== 'DELIVERY') {
+    if (!session || session.role !== 'DELIVERY') {
       return null;
     }
 
     return session;
   } catch (error) {
-    console.error('Error al recuperar sesión:', error);
+    console.error('Error al verificar sesión JWT:', error);
     return null;
   }
 }
 
 /**
- * Acción de servidor para el inicio de sesión.
+ * Acción de servidor para el inicio de sesión con JWT.
  */
 export async function loginAction(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const email = formData.get('email') as string;
@@ -73,7 +84,7 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
     return { error: 'Por favor, completa todos los campos.' };
   }
 
-  let userToAuth: DriverSession | null = null;
+  let token: string | null = null;
 
   try {
     const user = await prisma.user.findUnique({
@@ -94,19 +105,20 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
       return { error: 'Acceso exclusivo para repartidores.' };
     }
 
-    userToAuth = {
+    const sessionData: DriverSession = {
       id: user.id,
       name: user.name,
       role: user.role,
       email: user.email
     };
 
+    token = await encrypt(sessionData);
+
     const cookieStore = await cookies();
     
-    // Establecemos la cookie de sesión "tokenizada"
-    cookieStore.set('driver_session', encodeSession(userToAuth), { 
+    cookieStore.set('driver_session', token, { 
       httpOnly: true, 
-      secure: true, // Crucial para entornos HTTPS/Cloud
+      secure: true, 
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 1 semana
       path: '/'
@@ -117,8 +129,8 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
     return { error: 'Error interno del servidor.' };
   }
 
-  // Redireccionamos fuera del try-catch para que Next.js maneje el flujo correctamente
-  if (userToAuth) {
+  // Redirección fuera del try-catch para flujo Next.js
+  if (token) {
     redirect('/splash');
   }
   

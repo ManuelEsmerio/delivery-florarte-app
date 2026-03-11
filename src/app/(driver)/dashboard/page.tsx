@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { getDriverSession } from '@/app/actions/auth-actions';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { Card, CardContent } from "@/components/ui/card";
 import { Search, MapPin, Clock, ChevronRight, Package, CreditCard } from 'lucide-react';
@@ -14,6 +15,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function DashboardPage() {
+  // Forzamos el acceso a cookies para asegurar que Next.js no sirva una versión estática
+  await cookies();
+  
   const session = await getDriverSession();
   
   if (!session) {
