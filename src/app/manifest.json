@@ -1,12 +1,11 @@
-
 {
   "name": "DriveMate - Repartidores",
   "short_name": "DriveMate",
   "description": "App de gestión logística para repartidores",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ec5b13",
+  "background_color": "#fde4ec",
+  "theme_color": "#f472b6",
   "icons": [
     {
       "src": "https://picsum.photos/seed/icon192/192/192",
