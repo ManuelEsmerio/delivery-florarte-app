@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useTransition } from 'react';
@@ -29,7 +28,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 export default function OrderDetailPage() {
   const { id } = useParams();
@@ -43,6 +42,11 @@ export default function OrderDetailPage() {
   const [isPending, startTransition] = useTransition();
   const [showFailDialog, setShowFailDialog] = useState(false);
   const [failComment, setFailComment] = useState('');
+
+  const incidentResponses = [
+    "No se encontraba en casa",
+    "Dirección equivocada"
+  ];
 
   useEffect(() => {
     async function loadOrder() {
@@ -78,8 +82,8 @@ export default function OrderDetailPage() {
     if (!failComment.trim()) {
       toast({
         variant: "destructive",
-        title: "Comentario requerido",
-        description: "Indica el motivo por el cual no se pudo realizar la entrega."
+        title: "Motivo requerido",
+        description: "Selecciona el motivo por el cual no se pudo realizar la entrega."
       });
       return;
     }
@@ -343,14 +347,25 @@ export default function OrderDetailPage() {
                 Aviso: Se enviará correo notificando que el pedido regresará a tienda.
               </p>
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Motivo del fallo</label>
-              <Textarea 
-                placeholder="Ej. Nadie respondió al timbre..." 
-                value={failComment}
-                onChange={(e) => setFailComment(e.target.value)}
-                className="rounded-2xl min-h-[100px] border-slate-200 focus:ring-primary font-medium text-sm"
-              />
+            <div className="space-y-3">
+              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Selecciona el motivo</label>
+              <div className="grid grid-cols-1 gap-2">
+                {incidentResponses.map((resp) => (
+                  <button
+                    key={resp}
+                    type="button"
+                    onClick={() => setFailComment(resp)}
+                    className={cn(
+                      "w-full p-4 rounded-2xl text-left text-xs font-bold transition-all border-2",
+                      failComment === resp 
+                        ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-200" 
+                        : "bg-white border-slate-100 text-slate-600 hover:border-red-200"
+                    )}
+                  >
+                    {resp}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
