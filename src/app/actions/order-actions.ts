@@ -13,6 +13,7 @@ cloudinary.config({
 
 /**
  * Actualiza el estado de una orden.
+ * Retorna un objeto serializable para evitar errores de Decimal.
  */
 export async function updateOrderStatus(orderId: number, status: string) {
   try {
@@ -25,14 +26,16 @@ export async function updateOrderStatus(orderId: number, status: string) {
     });
     revalidatePath('/dashboard');
     revalidatePath(`/orders/${orderId}`);
+    return { success: true };
   } catch (error) {
     console.error('Error al actualizar estado:', error);
-    throw error;
+    return { success: false, error: 'No se pudo actualizar el estado' };
   }
 }
 
 /**
  * Finaliza la entrega guardando la firma en Cloudinary y los datos de recepción.
+ * Retorna un objeto plano (serializable) para evitar errores con tipos Decimal de Prisma.
  */
 export async function completeDelivery(
   orderId: number, 
@@ -42,8 +45,7 @@ export async function completeDelivery(
 ) {
   let finalSignatureUrl = null;
 
-  // 1. Si hay firma, subirla a Cloudinary
-  // El cliente envía Base64, el servidor lo sube y obtiene la URL
+  // 1. Si hay firma (Base64), subirla a Cloudinary
   if (signatureBase64 && signatureBase64.startsWith('data:image')) {
     try {
       const uploadResult = await cloudinary.uploader.upload(signatureBase64, {
@@ -52,33 +54,35 @@ export async function completeDelivery(
         public_id: `signature_${Date.now()}`
       });
       finalSignatureUrl = uploadResult.secure_url;
-      console.log(`DEBUG [Cloudinary]: URL generada: ${finalSignatureUrl}`);
+      console.log(`DEBUG [Cloudinary]: Firma subida con éxito: ${finalSignatureUrl}`);
     } catch (error) {
       console.error('ERROR [Cloudinary]: No se pudo subir la firma:', error);
+      // Continuamos aunque falle la firma, para no bloquear la entrega
     }
   }
 
-  // 2. Guardar SOLO la URL y los textos en la base de datos
+  // 2. Guardar datos en la base de datos
   try {
-    const updatedOrder = await prisma.order.update({
+    await prisma.order.update({
       where: { id: orderId },
       data: {
         status: 'DELIVERED',
         deliveredAt: new Date(),
-        proofOfDeliverySignature: finalSignatureUrl, // Solo guardamos la URL de Cloudinary
+        proofOfDeliverySignature: finalSignatureUrl,
         proofOfDeliveryReceiver: receiverName,
         deliveryNotes: observations || null
       }
     });
 
-    console.log(`DEBUG [Prisma]: Orden ${orderId} actualizada con éxito.`);
+    console.log(`DEBUG [Prisma]: Orden ${orderId} marcada como entregada.`);
     
     revalidatePath('/dashboard');
     revalidatePath(`/orders/${orderId}`);
     
-    return updatedOrder;
+    // Retornamos un objeto simple (serializable)
+    return { success: true };
   } catch (error) {
     console.error('Error al completar entrega en DB:', error);
-    throw error;
+    throw new Error('Error interno al procesar la entrega en la base de datos');
   }
 }

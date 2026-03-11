@@ -1,56 +1,81 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client-node"
 }
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
+  url      = process.env.DATABASE_URL
 }
 
 model User {
-  id       Int     @id @default(autoincrement())
-  email    String  @unique
-  name     String
-  password String
-  role     String  @default("DELIVERY")
-  phone    String?
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  role      String   @default("DELIVERY")
+  phone     String?
+  orders    Order[]  @relation("CustomerOrders")
+  deliveries Order[] @relation("DriverDeliveries")
 
   @@map("users")
 }
 
 model Order {
-  id                        Int       @id @default(autoincrement())
-  orderToken                String?
-  isGuest                   Boolean   @default(true)
-  isPickup                  Boolean   @default(false)
-  guestName                 String?
-  guestEmail                String?
-  guestPhone                String?
-  sessionId                 String?
-  couponCodeSnap            String?
-  paymentStatus             String    @default("PENDING")
-  subtotal                  Decimal?
-  couponDiscount            Decimal?
-  shippingCost              Decimal?
-  total                     Decimal?
-  deliveryDate              DateTime?
-  flowerPurchaseDate        DateTime?
-  deliveryTimeSlot          String?
-  dedication                String?   @db.Text
-  isAnonymous               Boolean   @default(false)
-  signature                 String?   @db.Text // Campo existente que no debemos usar
-  createdAt                 DateTime  @default(now())
-  updatedAt                 DateTime  @updatedAt
-  status                    String    @default("READY_FOR_SHIPMENT")
-  
-  // Nuevos campos para el comprobante de entrega
-  proofOfDeliverySignature  String?   @db.LongText
-  proofOfDeliveryReceiver   String?
-  deliveryNotes             String?   @db.Text
-  deliveredAt               DateTime?
-  
-  // Relaciones (basadas en logs de error)
-  deliveryDriverId          Int?
+  id                    Int           @id @default(autoincrement())
+  userId                Int?
+  isGuest               Boolean       @default(false)
+  guestName             String?
+  guestEmail            String?
+  guestPhone            String?
+  sessionId             String?
+  deliveryDriverId      Int?
+  couponId              Int?
+  couponCodeSnap        String?
+  status                String        @default("READY_FOR_SHIPMENT")
+  subtotal              Decimal       @db.Decimal(10, 2)
+  couponDiscount        Decimal       @default(0) @db.Decimal(10, 2)
+  shippingCost          Decimal       @db.Decimal(10, 2)
+  total                 Decimal       @db.Decimal(10, 2)
+  deliveryDate          DateTime
+  deliveryTimeSlot      String
+  dedication            String?       @db.Text
+  deliveryNotes         String?       @db.Text
+  isAnonymous           Boolean       @default(false)
+  signature             String?       @db.Text
+  deliveredAt           DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  isPickup              Boolean       @default(false)
+  orderToken            String?       @unique
+  paymentStatus         String        @default("PENDING")
+  flowerPurchaseDate    DateTime?
+
+  // Nuevos campos para comprobante de entrega
+  proofOfDeliveryReceiver  String?
+  proofOfDeliverySignature String? @db.Text
+
+  user                  User?         @relation("CustomerOrders", fields: [userId], references: [id])
+  deliveryDriver        User?         @relation("DriverDeliveries", fields: [deliveryDriverId], references: [id])
+  items                 OrderItem[]
 
   @@map("orders")
+}
+
+model OrderItem {
+  id              Int     @id @default(autoincrement())
+  orderId         Int
+  productId       Int
+  variantId       Int?
+  productNameSnap String
+  variantNameSnap String?
+  imageSnap       String? @db.Text
+  quantity        Int
+  priceSnap       Decimal @db.Decimal(10, 2)
+  totalSnap       Decimal @db.Decimal(10, 2)
+
+  order           Order   @relation(fields: [orderId], references: [id])
+
+  @@map("order_items")
 }
