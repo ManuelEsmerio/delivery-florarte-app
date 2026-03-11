@@ -24,6 +24,15 @@ export default function DeliveryConfirmationPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!receiverName.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Campo requerido",
+        description: "El nombre de quien recibe es obligatorio para finalizar la entrega."
+      });
+      return;
+    }
     
     startTransition(async () => {
       try {
@@ -70,13 +79,17 @@ export default function DeliveryConfirmationPage() {
 
         <div className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="receiver_name" className="text-base font-bold">Nombre de quien recibe (Opcional)</Label>
+            <Label htmlFor="receiver_name" className="text-base font-bold flex items-center gap-1">
+              Nombre de quien recibe
+              <span className="text-destructive">*</span>
+            </Label>
             <Input 
               id="receiver_name"
               placeholder="Ej. Juan Pérez"
               className="h-12 bg-white"
               value={receiverName}
               onChange={(e) => setReceiverName(e.target.value)}
+              required
             />
           </div>
 
