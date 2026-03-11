@@ -19,9 +19,11 @@ export type DriverSession = {
   email: string;
 };
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'fallback_secret_key_drivemate_2024_secure_min_32_chars'
-);
+// Generamos la clave de firma de forma robusta
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET || 'fallback_secret_key_drivemate_2024_secure_min_32_chars';
+  return new TextEncoder().encode(secret);
+};
 
 /**
  * Firma un JWT con los datos del repartidor.
@@ -31,7 +33,7 @@ async function encrypt(payload: DriverSession) {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')
-    .sign(JWT_SECRET);
+    .sign(getJwtSecret());
 }
 
 /**
@@ -39,11 +41,12 @@ async function encrypt(payload: DriverSession) {
  */
 async function decrypt(token: string): Promise<DriverSession | null> {
   try {
-    const { payload } = await jose.jwtVerify(token, JWT_SECRET, {
+    const { payload } = await jose.jwtVerify(token, getJwtSecret(), {
       algorithms: ['HS256'],
     });
     return payload as DriverSession;
   } catch (error) {
+    console.error('JWT Decryption Error:', error);
     return null;
   }
 }
@@ -52,29 +55,31 @@ async function decrypt(token: string): Promise<DriverSession | null> {
  * Obtiene la sesión actual del repartidor verificando el JWT.
  */
 export async function getDriverSession(): Promise<DriverSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('driver_session')?.value;
-    
-    if (!sessionToken) {
-      return null;
-    }
-
-    const session = await decrypt(sessionToken);
-    
-    if (!session || session.role !== 'DELIVERY') {
-      return null;
-    }
-
-    return session;
-  } catch (error) {
-    console.error('Error al verificar sesión JWT:', error);
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get('driver_session')?.value;
+  
+  if (!sessionToken) {
+    console.log('DEBUG: No session token found in cookies');
     return null;
   }
+
+  const session = await decrypt(sessionToken);
+  
+  if (!session) {
+    console.log('DEBUG: Session decryption failed');
+    return null;
+  }
+
+  if (session.role !== 'DELIVERY') {
+    console.log('DEBUG: Role unauthorized:', session.role);
+    return null;
+  }
+
+  return session;
 }
 
 /**
- * Acción de servidor para el inicio de sesión con JWT.
+ * Acción de servidor para el inicio de sesión.
  */
 export async function loginAction(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const email = formData.get('email') as string;
@@ -84,7 +89,7 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
     return { error: 'Por favor, completa todos los campos.' };
   }
 
-  let token: string | null = null;
+  let successToken: string | null = null;
 
   try {
     const user = await prisma.user.findUnique({
@@ -112,11 +117,10 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
       email: user.email
     };
 
-    token = await encrypt(sessionData);
+    successToken = await encrypt(sessionData);
 
     const cookieStore = await cookies();
-    
-    cookieStore.set('driver_session', token, { 
+    cookieStore.set('driver_session', successToken, { 
       httpOnly: true, 
       secure: true, 
       sameSite: 'lax',
@@ -124,13 +128,15 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
       path: '/'
     });
 
+    console.log('DEBUG: Login successful for', email);
+
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('CRITICAL LOGIN ERROR:', error);
     return { error: 'Error interno del servidor.' };
   }
 
-  // Redirección fuera del try-catch para flujo Next.js
-  if (token) {
+  // IMPORTANTE: El redirect debe estar FUERA del bloque try/catch en Next.js
+  if (successToken) {
     redirect('/splash');
   }
   
