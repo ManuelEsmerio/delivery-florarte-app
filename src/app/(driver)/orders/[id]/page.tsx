@@ -88,10 +88,11 @@ export default function OrderDetailPage() {
       if (res.success) {
         toast({
           title: "Incidencia Reportada",
-          description: "Se ha notificado al cliente el motivo del fallo."
+          description: "Se ha guardado la nota de incidencia."
         });
         setShowFailDialog(false);
-        router.push(`/dashboard?driverId=${driverIdStr}`);
+        // Actualizamos localmente para mostrar la nota de inmediato
+        setOrder((prev: any) => ({ ...prev, deliveryNotes: failComment }));
       } else {
         toast({
           variant: "destructive",
@@ -145,14 +146,14 @@ export default function OrderDetailPage() {
         </div>
         <Badge className={`border-none text-[10px] font-black uppercase px-3 py-1 rounded-xl ${
           order.status === 'DELIVERED' ? 'bg-green-500 text-white' : 
-          order.status === 'FAILED' ? 'bg-red-500 text-white' : 'bg-primary text-white'
+          order.deliveryNotes ? 'bg-amber-500 text-white' : 'bg-primary text-white'
         }`}>
-          {order.status === 'DELIVERED' ? 'Entregado' : order.status === 'FAILED' ? 'Fallido' : 'En Ruta'}
+          {order.status === 'DELIVERED' ? 'Entregado' : order.deliveryNotes ? 'Incidencia' : 'En Ruta'}
         </Badge>
       </header>
 
       <main className="flex-1 pb-32">
-        {order.status !== 'DELIVERED' && order.status !== 'FAILED' && (
+        {order.status !== 'DELIVERED' && (
           <section className="relative h-60 w-full overflow-hidden mb-6">
             <img 
               src={`https://picsum.photos/seed/${order.id}/800/400`} 
@@ -200,14 +201,14 @@ export default function OrderDetailPage() {
             </div>
           )}
 
-          {order.status === 'FAILED' && (
-            <div className="bg-red-50 p-6 rounded-[2rem] border-2 border-red-100 space-y-4">
-              <div className="flex items-center gap-2 text-red-700">
+          {order.deliveryNotes && order.status !== 'DELIVERED' && (
+            <div className="bg-amber-50 p-6 rounded-[2rem] border-2 border-amber-100 space-y-4">
+              <div className="flex items-center gap-2 text-amber-700">
                 <AlertTriangle className="w-6 h-6" />
-                <h3 className="font-black uppercase tracking-tight text-sm">Intento Fallido</h3>
+                <h3 className="font-black uppercase tracking-tight text-sm">Nota de Incidencia</h3>
               </div>
-              <p className="text-sm text-red-800 bg-white/50 p-4 rounded-2xl border border-red-100 leading-relaxed italic">
-                "{order.deliveryNotes || "El cliente no respondió a los llamados."}"
+              <p className="text-sm text-amber-800 bg-white/50 p-4 rounded-2xl border border-amber-100 leading-relaxed italic">
+                "{order.deliveryNotes}"
               </p>
             </div>
           )}
@@ -280,7 +281,7 @@ export default function OrderDetailPage() {
             </div>
           </section>
 
-          {order.status !== 'DELIVERED' && order.status !== 'FAILED' && (
+          {order.status !== 'DELIVERED' && (
             <section className="pt-8 flex flex-col gap-3">
               <Button 
                 onClick={() => setShowFailDialog(true)}
@@ -288,7 +289,7 @@ export default function OrderDetailPage() {
                 className="w-full border-red-200 text-red-600 bg-red-50/50 h-14 rounded-2xl font-black text-xs uppercase tracking-widest"
               >
                 <AlertTriangle className="size-4 mr-2" />
-                No hay nadie en domicilio
+                Reportar Incidencia
               </Button>
 
               <Button className="w-full bg-primary text-white h-16 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20" asChild>

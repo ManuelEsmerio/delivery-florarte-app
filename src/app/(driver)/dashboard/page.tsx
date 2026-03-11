@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useTransition } from 'react';
@@ -11,7 +12,8 @@ import {
   Phone, 
   Clock, 
   Info,
-  ExternalLink
+  ExternalLink,
+  AlertTriangle
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
@@ -39,11 +41,9 @@ export default function DashboardPage() {
   const [isPending, startTransition] = useTransition();
   const [currentDateStr, setCurrentDateStr] = useState<string>('');
 
-  // Estado para la modal de vista rápida
   const [quickViewOrder, setQuickViewOrder] = useState<any>(null);
   const [hoverTimer, setHoverTimer] = useState<NodeJS.Timeout | null>(null);
 
-  // Solución para error de hidratación de fecha
   useEffect(() => {
     setCurrentDateStr(format(new Date(), "EEEE, d 'de' MMMM", { locale: es }));
   }, []);
@@ -64,9 +64,7 @@ export default function DashboardPage() {
   };
 
   const handleMouseEnter = (order: any) => {
-    // Si ya hay un timer, no crear otro
     if (hoverTimer) return;
-    
     const timer = setTimeout(() => {
       setQuickViewOrder(order);
     }, 3000);
@@ -141,7 +139,7 @@ export default function DashboardPage() {
               style={{ animationDelay: `${index * 100}ms` }}
             >
               <Link href={`/orders/${order.id}?driverId=${driverId}`}>
-                <Card className="rounded-3xl border-none shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 bg-white overflow-hidden group active:scale-[0.98]">
+                <Card className={`rounded-3xl border-none shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 bg-white overflow-hidden group active:scale-[0.98] ${order.deliveryNotes ? 'ring-2 ring-amber-200' : ''}`}>
                   <CardContent className="p-6">
                     <div className="flex justify-between items-start mb-3">
                       <div className="space-y-1">
@@ -154,9 +152,10 @@ export default function DashboardPage() {
                         </p>
                       </div>
                       <Badge className={`text-[9px] font-black uppercase px-3 py-1.5 border-none rounded-xl shadow-sm ${
-                        order.status === 'DELIVERED' ? 'bg-green-500 text-white' : 'bg-primary text-white'
+                        order.status === 'DELIVERED' ? 'bg-green-500 text-white' : 
+                        order.deliveryNotes ? 'bg-amber-500 text-white' : 'bg-primary text-white'
                       }`}>
-                        {order.status === 'DELIVERED' ? 'Completado' : 'Pendiente'}
+                        {order.status === 'DELIVERED' ? 'Completado' : order.deliveryNotes ? 'Con Incidencia' : 'Pendiente'}
                       </Badge>
                     </div>
                     
@@ -164,6 +163,13 @@ export default function DashboardPage() {
                       <MapPin className="h-4 w-4 mr-2 mt-0.5 text-primary shrink-0" />
                       <span className="line-clamp-2 font-medium leading-relaxed">{order.orderAddress?.formattedAddress || "Sin dirección registrada"}</span>
                     </div>
+
+                    {order.deliveryNotes && (
+                      <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-amber-600 bg-amber-50 p-2 rounded-xl">
+                        <AlertTriangle className="size-3" />
+                        <span className="line-clamp-1 italic">{order.deliveryNotes}</span>
+                      </div>
+                    )}
 
                     <div className="mt-4 pt-4 border-t border-slate-50 flex justify-between items-center">
                       <div className="flex -space-x-2">
@@ -174,7 +180,7 @@ export default function DashboardPage() {
                         ))}
                       </div>
                       <div className="text-primary text-[10px] font-black uppercase tracking-widest flex items-center group-hover:translate-x-1 transition-transform">
-                        Ver Ruta
+                        Ver Detalles
                         <ChevronRight className="h-3 w-3 ml-1" />
                       </div>
                     </div>
@@ -193,7 +199,6 @@ export default function DashboardPage() {
         )}
       </main>
 
-      {/* Modal de Vista Rápida */}
       <Dialog open={!!quickViewOrder} onOpenChange={() => setQuickViewOrder(null)}>
         <DialogContent className="sm:max-w-[425px] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden bg-white mx-4">
           <div className="bg-primary p-8 text-white relative overflow-hidden">

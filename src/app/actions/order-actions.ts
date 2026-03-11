@@ -18,7 +18,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * Obtiene las órdenes por driverId y status.
- * Para 'OUT_FOR_DELIVERY', saltamos las que ya tienen notas de incidencia (deliveryNotes).
+ * Se eliminó el filtro de deliveryNotes para que el repartidor siga viendo sus incidencias.
  */
 export async function getOrdersByStatus(driverId: number, status: 'OUT_FOR_DELIVERY' | 'DELIVERED') {
   try {
@@ -26,11 +26,6 @@ export async function getOrdersByStatus(driverId: number, status: 'OUT_FOR_DELIV
       deliveryDriverId: driverId,
       status: status
     };
-
-    // Si estamos en ruta, ocultamos los que ya tienen una nota de fallo/incidencia
-    if (status === 'OUT_FOR_DELIVERY') {
-      whereClause.deliveryNotes = null;
-    }
 
     const orders = await prisma.order.findMany({
       where: whereClause,
@@ -51,11 +46,11 @@ export async function getOrdersByStatus(driverId: number, status: 'OUT_FOR_DELIV
 
 /**
  * Reporta un intento de entrega fallido.
- * Según instrucción: SOLO se actualiza el campo deliveryNotes.
+ * Solo actualiza el campo deliveryNotes para guardar el motivo.
  */
 export async function reportFailedDelivery(orderId: number, comment: string) {
   try {
-    // 1. Actualizar solo el deliveryNotes para evitar errores de ENUM con status
+    // 1. Actualizar solo el deliveryNotes en la base de datos
     const order = await prisma.order.update({
       where: { id: orderId },
       data: {
@@ -108,7 +103,7 @@ export async function reportFailedDelivery(orderId: number, comment: string) {
     return { success: true };
   } catch (error: any) {
     console.error('Error en reportFailedDelivery:', error);
-    return { success: false, error: 'No se pudo reportar la incidencia.' };
+    return { success: false, error: 'No se pudo reportar la incidencia en la base de datos.' };
   }
 }
 
