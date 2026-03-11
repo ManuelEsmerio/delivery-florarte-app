@@ -1,3 +1,4 @@
+
 import { prisma } from '@/lib/prisma';
 import { getDriverSession } from '@/app/actions/auth-actions';
 import Link from 'next/link';
@@ -23,9 +24,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const session = await getDriverSession();
   const driverId = session.id;
 
-  // Filtros de base de datos
-  // IMPORTANTE: Si driverId es 1 (Modo Demo), podrías querer ver todos los pedidos para pruebas
-  // o asegurar que en la DB hay pedidos asignados al ID 1.
+  // Construcción dinámica de la cláusula WHERE
   const whereClause: any = {
     deliveryDriverId: driverId,
   };
@@ -35,7 +34,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   } else if (activeStatus === 'IN_ROUTE') {
     whereClause.status = 'OUT_FOR_DELIVERY';
   } else if (activeStatus === 'PENDING') {
-    whereClause.status = { in: ['READY_FOR_SHIPMENT', 'ASSIGNED', 'PENDING'] };
+    // Si el error persiste, simplificamos a un solo estado común o verificamos los nombres exactos
+    whereClause.status = 'READY_FOR_SHIPMENT';
   }
 
   // Obtenemos las órdenes filtradas
@@ -43,7 +43,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     where: whereClause,
     include: {
       orderAddress: true,
-      user: true,
     },
     orderBy: {
       createdAt: 'desc'
@@ -66,17 +65,17 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   const totalDelivered = getCount(['DELIVERED']);
   const totalInRoute = getCount(['OUT_FOR_DELIVERY']);
-  const totalPending = getCount(['READY_FOR_SHIPMENT', 'ASSIGNED', 'PENDING']);
+  const totalPending = getCount(['READY_FOR_SHIPMENT', 'ASSIGNED', 'PENDING', 'READY']);
   const totalAll = counts.reduce((acc, curr) => acc + curr._count, 0);
 
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
       READY_FOR_SHIPMENT: 'Asignado',
+      READY: 'Listo',
       ASSIGNED: 'Asignado',
       PENDING: 'Pendiente',
       OUT_FOR_DELIVERY: 'En Ruta',
       DELIVERED: 'Entregado',
-      CANCELLED: 'Cancelado',
     };
     return labels[status] || status;
   };
@@ -85,14 +84,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     switch(status) {
       case 'DELIVERED': return 'bg-green-100 text-green-700';
       case 'OUT_FOR_DELIVERY': return 'bg-primary text-white';
-      case 'CANCELLED': return 'bg-red-100 text-red-700';
       default: return 'bg-slate-100 text-slate-600';
     }
-  };
-
-  const formatTimeSlot = (slot: string | null) => {
-    if (!slot) return "Sin horario";
-    return slot;
   };
 
   return (
@@ -153,20 +146,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                     <div>
                       <h2 className="text-lg font-black text-slate-900">ORD-{order.id}</h2>
                       <p className="text-primary font-bold text-sm">
-                        {order.orderAddress?.recipientName || order.guestName || "Cliente"}
+                        {order.orderAddress?.recipientName || "Cliente"}
                       </p>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <Badge className={`text-[10px] font-black uppercase px-3 py-1 border-none ${getStatusColor(order.status)}`}>
-                        {getStatusLabel(order.status)}
-                      </Badge>
-                      {order.dedication && (
-                        <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700 text-[10px] py-0 px-1.5 flex items-center gap-1">
-                          <CreditCard className="w-3 h-3" />
-                          MENSAJE
-                        </Badge>
-                      )}
-                    </div>
+                    <Badge className={`text-[10px] font-black uppercase px-3 py-1 border-none ${getStatusColor(order.status)}`}>
+                      {getStatusLabel(order.status)}
+                    </Badge>
                   </div>
                   
                   <div className="mt-4 space-y-2">
@@ -177,7 +162,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                     <div className="flex items-center text-sm text-slate-600">
                       <Clock className="h-4 w-4 mr-2 text-slate-400 shrink-0" />
                       <span className="font-medium tracking-tight">
-                        {formatTimeSlot(order.deliveryTimeSlot)}
+                        {order.deliveryTimeSlot || "Sin horario"}
                       </span>
                     </div>
                   </div>
@@ -195,8 +180,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         ) : (
           <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-100">
             <Package className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-slate-500 text-sm font-bold">Sin pedidos para el ID {driverId}.</p>
-            <p className="text-slate-400 text-xs mt-1">Verifica la asignación en el panel administrativo.</p>
+            <p className="text-slate-500 text-sm font-bold">Sin pedidos asignados.</p>
+            <p className="text-slate-400 text-xs mt-1">ID Repartidor: {driverId}</p>
           </div>
         )}
       </main>

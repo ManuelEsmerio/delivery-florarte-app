@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,64 +9,64 @@ datasource db {
 }
 
 model User {
-  id            Int     @id @default(autoincrement())
-  email         String  @unique
-  name          String
-  password      String?
-  role          String  @default("CUSTOMER")
-  phone         String?
-  
-  // Relación con órdenes como repartidor
-  deliveries    Order[] @relation("DriverDeliveries")
-  // Relación con órdenes como cliente
-  orders        Order[] @relation("UserOrders")
+  id        Int      @id @default(autocoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("DELIVERY") // "ADMIN", "DELIVERY", "CUSTOMER"
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]  @relation("DriverOrders")
 
   @@map("users")
 }
 
 model Order {
-  id                         Int       @id @default(autoincrement())
-  userId                     Int?      @map("user_id")
-  deliveryDriverId           Int?      @map("delivery_driver_id")
-  status                     String    @default("PENDING")
+  id                        Int           @id @default(autoincrement())
+  userId                    Int?
+  isGuest                   Boolean       @default(false)
+  guestName                 String?
+  guestEmail                String?
+  guestPhone                String?
+  status                    String        // "READY_FOR_SHIPMENT", "OUT_FOR_DELIVERY", "DELIVERED", etc.
+  total                     Decimal       @db.Decimal(10, 2)
+  subtotal                  Decimal?      @db.Decimal(10, 2)
+  shippingCost              Decimal?      @db.Decimal(10, 2)
+  couponDiscount            Decimal?      @db.Decimal(10, 2)
+  deliveryDate              DateTime?
+  deliveryTimeSlot          String?
+  dedication                String?       @db.Text
+  deliveryNotes             String?       @db.Text
+  isAnonymous               Boolean       @default(false)
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  isPickup                  Boolean       @default(false)
+  orderToken                String?       @unique
+  paymentStatus             String        @default("PENDING")
+  deliveryDriverId          Int?
   
-  // Datos de entrega (Evidencia)
-  proofOfDeliverySignature   String?   @map("proof_of_delivery_signature") @db.Text
-  proofOfDeliveryReceiver    String?   @map("proof_of_delivery_receiver")
-  deliveredAt                DateTime? @map("delivered_at")
-  deliveryNotes              String?   @map("delivery_notes") @db.Text
-  
-  // Otros campos (Mapeados según el log de error)
-  isGuest                    Boolean   @default(false) @map("is_guest")
-  guestName                  String?   @map("guest_name")
-  guestEmail                 String?   @map("guest_email")
-  guestPhone                 String?   @map("guest_phone")
-  deliveryDate               DateTime? @map("delivery_date")
-  deliveryTimeSlot           String?   @map("delivery_time_slot")
-  dedication                 String?   @db.Text
-  total                      Decimal?  @db.Decimal(10, 2)
-  
-  // Relaciones
-  user                       User?     @relation("UserOrders", fields: [userId], references: [id])
-  deliveryDriver             User?     @relation("DriverDeliveries", fields: [deliveryDriverId], references: [id])
-  items                      OrderItem[]
-  orderAddress               OrderAddress?
+  // Nuevos campos para la confirmación de entrega
+  proofOfDeliveryReceiver   String?
+  proofOfDeliverySignature  String?       @db.Text
+  deliveredAt               DateTime?
 
-  createdAt                  DateTime  @default(now()) @map("created_at")
-  updatedAt                  DateTime  @updatedAt @map("updated_at")
+  user                      User?         @relation(fields: [userId], references: [id])
+  deliveryDriver            User?         @relation("DriverOrders", fields: [deliveryDriverId], references: [id])
+  items                     OrderItem[]
+  orderAddress              OrderAddress?
 
   @@map("orders")
 }
 
 model OrderItem {
   id              Int     @id @default(autoincrement())
-  orderId         Int     @map("order_id")
-  productNameSnap String  @map("product_name_snap")
-  variantNameSnap String? @map("variant_name_snap")
+  orderId         Int
+  productNameSnap String
+  variantNameSnap String?
   quantity        Int
-  priceSnap       Decimal @map("price_snap") @db.Decimal(10, 2)
-  imageSnap       String? @map("image_snap") @db.Text
-  
+  priceSnap       Decimal @db.Decimal(10, 2)
+  imageSnap       String? @db.Text
   order           Order   @relation(fields: [orderId], references: [id])
 
   @@map("order_items")
@@ -73,13 +74,12 @@ model OrderItem {
 
 model OrderAddress {
   id               Int     @id @default(autoincrement())
-  orderId          Int     @unique @map("order_id")
-  recipientName    String  @map("recipient_name")
-  recipientPhone   String? @map("recipient_phone")
-  formattedAddress String  @map("formatted_address") @db.Text
+  orderId          Int     @unique
+  recipientName    String
+  recipientPhone   String
+  formattedAddress String  @db.Text
   lat              Float?
   lng              Float?
-  
   order            Order   @relation(fields: [orderId], references: [id])
 
   @@map("order_addresses")
