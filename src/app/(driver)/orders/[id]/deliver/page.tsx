@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, CheckCircle2, ShieldCheck, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { SignaturePad } from '@/components/SignaturePad';
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +20,7 @@ export default function DeliveryConfirmationPage() {
 
   const [receiverName, setReceiverName] = useState('');
   const [signature, setSignature] = useState('');
+  const [observations, setObservations] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +30,8 @@ export default function DeliveryConfirmationPage() {
         await completeDelivery(
           parseInt(id as string), 
           receiverName, 
-          signature
+          signature,
+          observations
         );
         toast({
           title: "¡Entrega Exitosa!",
@@ -80,6 +83,20 @@ export default function DeliveryConfirmationPage() {
           <div className="space-y-2">
             <Label className="text-base font-bold">Firma (Opcional)</Label>
             <SignaturePad onCapture={setSignature} />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="observations" className="text-base font-bold flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-slate-400" />
+              Observaciones de la entrega
+            </Label>
+            <Textarea 
+              id="observations"
+              placeholder="Ej. Se dejó con el guardia de seguridad, puerta color rojo, etc."
+              className="min-h-[100px] bg-white resize-none"
+              value={observations}
+              onChange={(e) => setObservations(e.target.value)}
+            />
           </div>
         </div>
 

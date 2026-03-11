@@ -20,21 +20,23 @@ export async function updateOrderStatus(orderId: number, status: string) {
 }
 
 /**
- * Finaliza la entrega guardando la firma y el nombre del receptor en campos específicos.
+ * Finaliza la entrega guardando la firma, el nombre del receptor y las observaciones.
  */
 export async function completeDelivery(
   orderId: number, 
   receiverName?: string, 
-  signatureUrl?: string
+  signatureUrl?: string,
+  observations?: string
 ) {
   await prisma.order.update({
     where: { id: orderId },
     data: {
       status: 'DELIVERED',
       deliveredAt: new Date(),
-      // Usamos los campos específicos para comprobante de entrega solicitado
       proofOfDeliverySignature: signatureUrl || null,
-      proofOfDeliveryReceiver: receiverName || null
+      proofOfDeliveryReceiver: receiverName || null,
+      // Usamos deliveryNotes para las observaciones finales del repartidor
+      deliveryNotes: observations || null
     }
   });
 

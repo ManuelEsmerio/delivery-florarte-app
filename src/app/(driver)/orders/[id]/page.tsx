@@ -141,6 +141,12 @@ export default async function OrderDetailPage({ params }: PageProps) {
                   </div>
                 </div>
               )}
+              {order.deliveryNotes && (
+                <div className="pt-2 border-t border-slate-50">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Observaciones del repartidor</p>
+                  <p className="text-sm text-slate-600 italic mt-1">"{order.deliveryNotes}"</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -222,7 +228,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
           </div>
         </section>
 
-        {order.deliveryNotes && (
+        {order.status !== 'DELIVERED' && order.deliveryNotes && (
           <section className="mt-8 px-4">
             <div className="bg-primary/5 border-l-4 border-primary p-4 rounded-r-2xl">
               <div className="flex items-center gap-2 mb-2">
