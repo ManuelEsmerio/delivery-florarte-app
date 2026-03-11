@@ -15,12 +15,12 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function DashboardPage() {
-  // En Next.js 15, await cookies() garantiza que la página sea dinámica y lea los headers frescos
-  const cookieStore = await cookies();
+  // Aseguramos que se lean los headers frescos en cada petición
+  await cookies();
   const session = await getDriverSession();
 
   if (!session) {
-    console.log('DEBUG: Dashboard unauthorized, no session found. Request Cookies:', cookieStore.getAll().map(c => c.name));
+    console.log('DEBUG [Dashboard]: Sin sesión activa, redirigiendo a /login');
     redirect('/login');
   }
 
