@@ -32,7 +32,7 @@ export async function updateOrderStatus(orderId: number, status: string) {
 }
 
 /**
- * Finaliza la entrega guardando la firma en Cloudinary, el nombre del receptor y las observaciones.
+ * Finaliza la entrega guardando la firma en Cloudinary y los datos de recepción.
  */
 export async function completeDelivery(
   orderId: number, 
@@ -42,7 +42,7 @@ export async function completeDelivery(
 ) {
   let finalSignatureUrl = null;
 
-  // Subir firma a Cloudinary si existe y es un base64 válido
+  // 1. Subir a Cloudinary ANTES de guardar en DB
   if (signatureBase64 && signatureBase64.startsWith('data:image')) {
     try {
       const uploadResult = await cloudinary.uploader.upload(signatureBase64, {
@@ -51,17 +51,15 @@ export async function completeDelivery(
         public_id: `signature_${Date.now()}`
       });
       finalSignatureUrl = uploadResult.secure_url;
-      console.log(`DEBUG [Cloudinary]: Imagen subida con éxito: ${finalSignatureUrl}`);
+      console.log(`DEBUG [Cloudinary]: Firma subida correctamente: ${finalSignatureUrl}`);
     } catch (error) {
       console.error('ERROR [Cloudinary]: No se pudo subir la firma:', error);
-      // Fallback: si falla Cloudinary, no bloqueamos la operación (opcional)
     }
   }
 
+  // 2. Guardar en la base de datos solo la URL y los textos
   try {
-    // Actualización en la base de datos usando los campos correctos del esquema
-    // El modelo 'Order' está mapeado a la tabla 'orders' en schema.prisma
-    await prisma.order.update({
+    const updatedOrder = await prisma.order.update({
       where: { id: orderId },
       data: {
         status: 'DELIVERED',
@@ -72,8 +70,12 @@ export async function completeDelivery(
       }
     });
 
+    console.log(`DEBUG [Prisma]: Orden ${orderId} actualizada correctamente.`);
+    
     revalidatePath('/dashboard');
     revalidatePath(`/orders/${orderId}`);
+    
+    return updatedOrder;
   } catch (error) {
     console.error('Error al completar entrega en DB:', error);
     throw error;
