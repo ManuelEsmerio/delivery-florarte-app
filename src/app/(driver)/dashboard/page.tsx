@@ -18,22 +18,28 @@ interface PageProps {
 export default async function DashboardPage({ searchParams }: PageProps) {
   const { status: activeStatus = 'OUT_FOR_DELIVERY', driverId: driverIdStr } = await searchParams;
   
-  // Usamos el ID del repartidor desde la URL para evitar problemas de cookies
+  // Usamos el ID del repartidor desde la URL
   const driverId = driverIdStr ? parseInt(driverIdStr) : null;
 
   if (!driverId) {
-    // Si no hay ID, mostramos un estado vacío o invitamos a loguear
     return (
       <div className="p-8 text-center flex flex-col items-center justify-center min-h-screen">
-        <User className="w-12 h-12 text-slate-300 mb-4" />
-        <h2 className="text-xl font-bold">Sesión no encontrada</h2>
-        <p className="text-sm text-slate-500 mt-2">Por favor, inicia sesión de nuevo.</p>
-        <Link href="/login" className="mt-6 text-primary font-bold">Volver al Login</Link>
+        <div className="size-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+          <User className="w-10 h-10 text-slate-300" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900">Identificación requerida</h2>
+        <p className="text-sm text-slate-500 mt-2 max-w-[200px]">No hemos podido identificar tu cuenta de repartidor.</p>
+        <Link 
+          href="/login" 
+          className="mt-8 bg-primary text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-primary/20 active:scale-95 transition-transform"
+        >
+          Ir al Login
+        </Link>
       </div>
     );
   }
 
-  // Filtros exclusivos: 'OUT_FOR_DELIVERY' (En Ruta) y 'DELIVERED' (Entregado)
+  // Filtros: 'OUT_FOR_DELIVERY' (En Ruta) y 'DELIVERED' (Entregado)
   const filterStatus = activeStatus === 'DELIVERED' ? 'DELIVERED' : 'OUT_FOR_DELIVERY';
 
   const orders = await prisma.order.findMany({
@@ -76,8 +82,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               {format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}
             </p>
           </div>
-          <div className="size-10 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold border border-primary/20">
-            D
+          <div className="size-10 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold border border-primary/20 uppercase">
+            {driverIdStr ? 'R' : 'D'}
           </div>
         </div>
       </header>
@@ -138,7 +144,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         ) : (
           <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-100 flex flex-col items-center">
             <Package className="w-12 h-12 text-slate-200 mb-4" />
-            <p className="text-slate-500 text-sm font-bold">No hay pedidos registrados.</p>
+            <p className="text-slate-500 text-sm font-bold">No hay pedidos en esta sección.</p>
           </div>
         )}
       </main>

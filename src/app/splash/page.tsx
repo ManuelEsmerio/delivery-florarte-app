@@ -1,19 +1,27 @@
+
 "use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Truck } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
 
-export default function SplashPage() {
+function SplashContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [progress, setProgress] = useState(0);
+  const driverId = searchParams.get('driverId');
 
   useEffect(() => {
     const timer = setTimeout(() => setProgress(33), 500);
     const timer2 = setTimeout(() => setProgress(66), 1500);
     const timer3 = setTimeout(() => setProgress(100), 2500);
-    const timer4 = setTimeout(() => router.push('/dashboard'), 3200);
+    
+    const timer4 = setTimeout(() => {
+      // Pasamos el driverId al dashboard para mantener la "sesión" por URL
+      const target = driverId ? `/dashboard?driverId=${driverId}` : '/dashboard';
+      router.push(target);
+    }, 3200);
 
     return () => {
       clearTimeout(timer);
@@ -21,7 +29,7 @@ export default function SplashPage() {
       clearTimeout(timer3);
       clearTimeout(timer4);
     };
-  }, [router]);
+  }, [router, driverId]);
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white min-h-screen">
@@ -45,5 +53,13 @@ export default function SplashPage() {
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">DriveMate Connect v2.4</p>
       </div>
     </div>
+  );
+}
+
+export default function SplashPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white" />}>
+      <SplashContent />
+    </Suspense>
   );
 }
