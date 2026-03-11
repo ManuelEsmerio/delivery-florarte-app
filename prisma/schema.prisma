@@ -7,11 +7,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   name      String
-  password  String
   role      String   @default("DELIVERY")
   phone     String?
   orders    Order[]  @relation("UserOrders")
@@ -19,65 +25,60 @@ model User {
 }
 
 model Order {
-  id                        Int             @id @default(autoincrement())
-  status                    String          @default("READY_FOR_SHIPMENT")
-  deliveredAt               DateTime?
-  orderToken               String?
-  isGuest                  Boolean         @default(false)
-  isPickup                 Boolean         @default(false)
-  guestName                String?
-  guestEmail               String?
-  guestPhone               String?
-  sessionId                String?
-  couponCodeSnap           String?
-  paymentStatus            String          @default("PENDING")
-  subtotal                 Decimal         @db.Decimal(10, 2)
-  couponDiscount           Decimal         @db.Decimal(10, 2)
-  shippingCost             Decimal         @db.Decimal(10, 2)
-  total                    Decimal         @db.Decimal(10, 2)
-  deliveryDate             DateTime
-  flowerPurchaseDate       DateTime?
-  deliveryTimeSlot         String
-  dedication               String?         @db.Text
-  isAnonymous              Boolean         @default(false)
-  signature                String?         @db.Text
-  createdAt                DateTime        @default(now())
-  updatedAt                DateTime        @updatedAt
-  
-  // Campos de Comprobante de Entrega (POD)
-  proofOfDeliverySignature String?         @db.LongText
+  id                   Int             @id @default(autoincrement())
+  orderToken           String?
+  isGuest              Boolean         @default(false)
+  isPickup             Boolean         @default(false)
+  guestName            String?
+  guestEmail           String?
+  guestPhone           String?
+  sessionId            String?
+  couponCodeSnap       String?
+  paymentStatus        PaymentStatus   @default(PENDING)
+  subtotal             Decimal?        @db.Decimal(10, 2)
+  couponDiscount       Decimal?        @db.Decimal(10, 2)
+  shippingCost         Decimal?        @db.Decimal(10, 2)
+  total                Decimal?        @db.Decimal(10, 2)
+  status               String          @default("READY_FOR_SHIPMENT")
+  deliveryDate         DateTime?
+  flowerPurchaseDate   DateTime?
+  deliveryTimeSlot     String
+  dedication           String?
+  isAnonymous          Boolean         @default(false)
+  signature            String?         // Campo existente usado para otro propósito
+  deliveryNotes        String?         // Usado para observaciones finales
+  deliveredAt          DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  // NUEVOS CAMPOS PARA LOGÍSTICA DE ENTREGA (SOLICITADOS)
+  proofOfDeliverySignature String?       @db.LongText
   proofOfDeliveryReceiver  String?
-  deliveryNotes            String?         @db.Text
 
   // Relaciones
-  userId                   Int?
-  user                     User?           @relation("UserOrders", fields: [userId], references: [id])
-  deliveryDriverId         Int?
-  deliveryDriver           User?           @relation("DriverDeliveries", fields: [deliveryDriverId], references: [id])
-  
-  items                    OrderItem[]
-  orderAddress             OrderAddress?
-}
-
-model OrderItem {
-  id              Int     @id @default(autoincrement())
-  orderId         Int
-  order           Order   @relation(fields: [orderId], references: [id])
-  productId       Int
-  productNameSnap String
-  variantNameSnap String?
-  quantity        Int
-  priceSnap       Decimal @db.Decimal(10, 2)
-  imageSnap       String? @db.Text
+  userId               Int?
+  user                 User?           @relation("UserOrders", fields: [userId], references: [id])
+  deliveryDriverId     Int?
+  deliveryDriver       User?           @relation("DriverDeliveries", fields: [deliveryDriverId], references: [id])
+  orderAddress         OrderAddress?
+  items                OrderItem[]
 }
 
 model OrderAddress {
   id               Int     @id @default(autoincrement())
-  orderId          Int     @unique
-  order            Order   @relation(fields: [orderId], references: [id])
   recipientName    String
   recipientPhone   String?
-  formattedAddress String  @db.Text
-  lat              Decimal @db.Decimal(10, 8)
-  lng              Decimal @db.Decimal(11, 8)
+  formattedAddress String
+  orderId          Int     @unique
+  order            Order   @relation(fields: [orderId], references: [id])
+}
+
+model OrderItem {
+  id              Int     @id @default(autoincrement())
+  productNameSnap String
+  variantNameSnap String?
+  imageSnap       String?
+  quantity        Int
+  orderId         Int
+  order           Order   @relation(fields: [orderId], references: [id])
 }
