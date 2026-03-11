@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getDriverSession } from '@/app/actions/auth-actions';
 import Link from 'next/link';
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, MapPin, Clock, ChevronRight, Package, CreditCard } from 'lucide-react';
+import { Search, MapPin, Clock, ChevronRight, Package } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -18,29 +18,20 @@ interface PageProps {
 }
 
 export default async function DashboardPage({ searchParams }: PageProps) {
-  const { status: activeStatus = 'ALL' } = await searchParams;
+  const { status: activeStatus = 'IN_ROUTE' } = await searchParams;
   
   await cookies();
   const session = await getDriverSession();
   const driverId = session.id;
 
-  // Construcción dinámica de la cláusula WHERE
-  const whereClause: any = {
-    deliveryDriverId: driverId,
-  };
+  // Solo permitimos 'OUT_FOR_DELIVERY' y 'DELIVERED' como filtros principales
+  const filterStatus = activeStatus === 'DELIVERED' ? 'DELIVERED' : 'OUT_FOR_DELIVERY';
 
-  if (activeStatus === 'DELIVERED') {
-    whereClause.status = 'DELIVERED';
-  } else if (activeStatus === 'IN_ROUTE') {
-    whereClause.status = 'OUT_FOR_DELIVERY';
-  } else if (activeStatus === 'PENDING') {
-    // Si el error persiste, simplificamos a un solo estado común o verificamos los nombres exactos
-    whereClause.status = 'READY_FOR_SHIPMENT';
-  }
-
-  // Obtenemos las órdenes filtradas
   const orders = await prisma.order.findMany({
-    where: whereClause,
+    where: {
+      deliveryDriverId: driverId,
+      status: filterStatus as any
+    },
     include: {
       orderAddress: true,
     },
@@ -50,30 +41,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     take: 50
   });
 
-  // Conteos para los badges de las pestañas
-  const counts = await prisma.order.groupBy({
-    by: ['status'],
-    where: { deliveryDriverId: driverId },
-    _count: true
-  });
-
-  const getCount = (statuses: string[]) => {
-    return counts
-      .filter(c => statuses.includes(c.status))
-      .reduce((acc, curr) => acc + curr._count, 0);
-  };
-
-  const totalDelivered = getCount(['DELIVERED']);
-  const totalInRoute = getCount(['OUT_FOR_DELIVERY']);
-  const totalPending = getCount(['READY_FOR_SHIPMENT', 'ASSIGNED', 'PENDING', 'READY']);
-  const totalAll = counts.reduce((acc, curr) => acc + curr._count, 0);
-
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
-      READY_FOR_SHIPMENT: 'Asignado',
-      READY: 'Listo',
-      ASSIGNED: 'Asignado',
-      PENDING: 'Pendiente',
       OUT_FOR_DELIVERY: 'En Ruta',
       DELIVERED: 'Entregado',
     };
@@ -113,19 +82,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           />
         </div>
 
-        <Tabs defaultValue={activeStatus} className="w-full">
-          <TabsList className="w-full bg-white/50 p-1 h-11 border-none shadow-sm flex overflow-x-auto no-scrollbar">
-            <TabsTrigger value="ALL" asChild className="flex-1 text-[9px] font-bold uppercase tracking-wider">
-              <Link href="/dashboard?status=ALL">Todos ({totalAll})</Link>
+        <Tabs defaultValue={filterStatus} className="w-full">
+          <TabsList className="w-full bg-white shadow-sm p-1 h-12 border-none">
+            <TabsTrigger value="OUT_FOR_DELIVERY" asChild className="flex-1 text-xs font-bold uppercase">
+              <Link href="/dashboard?status=IN_ROUTE">En Ruta</Link>
             </TabsTrigger>
-            <TabsTrigger value="PENDING" asChild className="flex-1 text-[9px] font-bold uppercase tracking-wider">
-              <Link href="/dashboard?status=PENDING">Nuevos ({totalPending})</Link>
-            </TabsTrigger>
-            <TabsTrigger value="IN_ROUTE" asChild className="flex-1 text-[9px] font-bold uppercase tracking-wider">
-              <Link href="/dashboard?status=IN_ROUTE">En Ruta ({totalInRoute})</Link>
-            </TabsTrigger>
-            <TabsTrigger value="DELIVERED" asChild className="flex-1 text-[9px] font-bold uppercase tracking-wider">
-              <Link href="/dashboard?status=DELIVERED">Listos ({totalDelivered})</Link>
+            <TabsTrigger value="DELIVERED" asChild className="flex-1 text-xs font-bold uppercase">
+              <Link href="/dashboard?status=DELIVERED">Entregados</Link>
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -180,8 +143,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         ) : (
           <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-100">
             <Package className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-slate-500 text-sm font-bold">Sin pedidos asignados.</p>
-            <p className="text-slate-400 text-xs mt-1">ID Repartidor: {driverId}</p>
+            <p className="text-slate-500 text-sm font-bold">Sin pedidos en esta categoría.</p>
           </div>
         )}
       </main>
