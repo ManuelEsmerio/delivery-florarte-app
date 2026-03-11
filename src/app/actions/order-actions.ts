@@ -17,7 +17,34 @@ cloudinary.config({
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
- * Actualiza el estado de una orden respetando el esquema.
+ * Obtiene las órdenes por driverId y status.
+ * Usado para el filtrado rápido en el cliente.
+ */
+export async function getOrdersByStatus(driverId: number, status: 'OUT_FOR_DELIVERY' | 'DELIVERED') {
+  try {
+    const orders = await prisma.order.findMany({
+      where: {
+        deliveryDriverId: driverId,
+        status: status
+      },
+      include: {
+        orderAddress: true,
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: 50
+    });
+    // Convertimos objetos complejos (como Decimal si existieran) a tipos primitivos para el cliente
+    return JSON.parse(JSON.stringify(orders));
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    return [];
+  }
+}
+
+/**
+ * Actualiza el estado de una orden.
  */
 export async function updateOrderStatus(orderId: number, status: any) {
   try {
@@ -35,7 +62,6 @@ export async function updateOrderStatus(orderId: number, status: any) {
 
 /**
  * Finaliza la entrega, sube firma a Cloudinary y envía correo con Resend.
- * Evita devolver el objeto de la orden completo para prevenir errores de Decimal.
  */
 export async function completeDelivery(
   orderId: number, 
