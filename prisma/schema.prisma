@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,101 +8,103 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  ADMIN
+  CUSTOMER
+  DELIVERY
+}
+
 enum PaymentStatus {
   PENDING
   PAID
   FAILED
-  CANCELLED
   REFUNDED
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String
-  password  String?
-  role      String   @default("DELIVERY") // "ADMIN", "DELIVERY", "CUSTOMER"
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relaciones
-  orders          Order[] @relation("CustomerOrders")
-  deliveries      Order[] @relation("DriverDeliveries")
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
+  password      String?
+  name          String
+  phone         String?
+  role          Role     @default(CUSTOMER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  orders        Order[]  @relation("CustomerOrders")
+  deliveries    Order[]  @relation("DriverDeliveries")
 
   @@map("users")
 }
 
 model Order {
   id                        Int           @id @default(autoincrement())
-  orderToken               String?       @unique
-  userId                   Int?
-  isGuest                  Boolean       @default(false)
-  isPickup                 Boolean       @default(false)
-  guestName                String?
-  guestEmail               String?
-  guestPhone               String?
-  sessionId                String?
-  deliveryDriverId         Int?
-  couponId                 Int?
-  couponCodeSnap           String?
-  status                   String        @default("READY_FOR_SHIPMENT")
-  paymentStatus            PaymentStatus @default(PENDING)
-  subtotal                 Decimal       @db.Decimal(10, 2)
-  couponDiscount           Decimal       @default(0) @db.Decimal(10, 2)
-  shippingCost             Decimal       @db.Decimal(10, 2)
-  total                    Decimal       @db.Decimal(10, 2)
-  deliveryDate             DateTime
-  flowerPurchaseDate       DateTime?
-  deliveryTimeSlot         String
-  dedication               String?       @db.Text
-  deliveryNotes            String?       @db.Text
-  isAnonymous              Boolean       @default(false)
-  signature                String?       @db.LongText
+  orderToken                String?       @unique
+  userId                    Int?
+  isGuest                   Boolean       @default(false)
+  isPickup                  Boolean       @default(false)
+  guestName                 String?
+  guestEmail                String?
+  guestPhone                String?
+  sessionId                 String?
+  deliveryDriverId          Int?
+  status                    String        @default("PENDING")
+  paymentStatus             PaymentStatus @default(PENDING)
   
-  // Nuevos campos para Evidencia de Entrega
-  proofOfDeliverySignature String?       @db.LongText
-  proofOfDeliveryReceiver  String?
+  subtotal                  Decimal       @db.Decimal(10, 2)
+  couponDiscount            Decimal       @default(0) @db.Decimal(10, 2)
+  shippingCost              Decimal       @default(0) @db.Decimal(10, 2)
+  total                     Decimal       @db.Decimal(10, 2)
   
-  deliveredAt              DateTime?
-  createdAt                DateTime      @default(now())
-  updatedAt                DateTime      @updatedAt
+  deliveryDate              DateTime
+  flowerPurchaseDate        DateTime?
+  deliveryTimeSlot          String
+  
+  dedication                String?       @db.Text
+  deliveryNotes             String?       @db.Text
+  isAnonymous               Boolean       @default(false)
+  
+  // Nuevos campos para la APP de Repartidores
+  proofOfDeliverySignature  String?       @db.Text
+  proofOfDeliveryReceiver   String?
+  deliveredAt               DateTime?
+  
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
 
-  // Relaciones
-  user           User?         @relation("CustomerOrders", fields: [userId], references: [id])
-  deliveryDriver User?         @relation("DriverDeliveries", fields: [deliveryDriverId], references: [id])
-  items          OrderItem[]
-  orderAddress   OrderAddress?
+  user                      User?         @relation("CustomerOrders", fields: [userId], references: [id])
+  deliveryDriver            User?         @relation("DriverDeliveries", fields: [deliveryDriverId], references: [id])
+  orderAddress              OrderAddress?
+  items                     OrderItem[]
 
   @@map("orders")
-}
-
-model OrderItem {
-  id              Int     @id @default(autoincrement())
-  orderId         Int
-  productId       Int
-  variantId       Int?
-  quantity        Int
-  priceSnap       Decimal @db.Decimal(10, 2)
-  productNameSnap String
-  variantNameSnap String?
-  imageSnap       String? @db.Text
-
-  order Order @relation(fields: [orderId], references: [id])
-
-  @@map("order_items")
 }
 
 model OrderAddress {
   id               Int     @id @default(autoincrement())
   orderId          Int     @unique
   recipientName    String
-  recipientPhone   String?
+  recipientPhone   String
   formattedAddress String  @db.Text
   lat              Float?
   lng              Float?
-
-  order Order @relation(fields: [orderId], references: [id])
+  
+  order            Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("order_addresses")
+}
+
+model OrderItem {
+  id               Int     @id @default(autoincrement())
+  orderId          Int
+  productId        Int
+  productNameSnap  String
+  variantNameSnap  String?
+  imageSnap        String? @db.Text
+  quantity         Int
+  priceSnap        Decimal @db.Decimal(10, 2)
+
+  order            Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_items")
 }

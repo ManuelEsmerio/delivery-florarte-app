@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getDriverSession } from '@/app/actions/auth-actions';
 import Link from 'next/link';
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, MapPin, Clock, ChevronRight, Package, CreditCard, Info } from 'lucide-react';
+import { Search, MapPin, Clock, ChevronRight, Package, CreditCard, Info, Filter } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -14,19 +14,33 @@ import { cookies } from 'next/headers';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function DashboardPage() {
-  // Aseguramos que la página sea dinámica leyendo cookies
+interface PageProps {
+  searchParams: Promise<{ status?: string }>;
+}
+
+export default async function DashboardPage({ searchParams }: PageProps) {
+  const { status: activeStatus = 'ALL' } = await searchParams;
+  
   await cookies();
   const session = await getDriverSession();
   const driverId = session.id;
 
-  console.log(`DEBUG [Dashboard]: Consultando órdenes para driverId: ${driverId}`);
+  // Filtros de base de datos
+  const whereClause: any = {
+    deliveryDriverId: driverId,
+  };
 
-  // Intentamos cargar órdenes específicas del repartidor
+  if (activeStatus === 'DELIVERED') {
+    whereClause.status = 'DELIVERED';
+  } else if (activeStatus === 'IN_ROUTE') {
+    whereClause.status = 'OUT_FOR_DELIVERY';
+  } else if (activeStatus === 'PENDING') {
+    whereClause.status = { in: ['READY_FOR_SHIPMENT', 'ASSIGNED'] };
+  }
+
+  // Obtenemos las órdenes filtradas
   let orders = await prisma.order.findMany({
-    where: {
-      deliveryDriverId: driverId,
-    },
+    where: whereClause,
     include: {
       orderAddress: true,
       user: true,
@@ -37,23 +51,22 @@ export default async function DashboardPage() {
     take: 20
   });
 
-  // Fallback Debug: Si no hay órdenes para ese ID, cargamos CUALQUIER orden 
-  // para verificar que la DB tiene datos y la conexión funciona.
-  let isUsingFallback = false;
-  if (orders.length === 0) {
-    console.log("DEBUG [Dashboard]: No se encontraron órdenes para el ID específico. Cargando órdenes globales como fallback.");
-    orders = await prisma.order.findMany({
-      include: {
-        orderAddress: true,
-        user: true,
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      take: 10
-    });
-    isUsingFallback = orders.length > 0;
-  }
+  // Conteos para los badges de las pestañas
+  const counts = await prisma.order.groupBy({
+    by: ['status'],
+    where: { deliveryDriverId: driverId },
+    _count: true
+  });
+
+  const getCount = (statuses: string[]) => {
+    return counts
+      .filter(c => statuses.includes(c.status))
+      .reduce((acc, curr) => acc + curr._count, 0);
+  };
+
+  const totalDelivered = getCount(['DELIVERED']);
+  const totalInRoute = getCount(['OUT_FOR_DELIVERY']);
+  const totalAll = counts.reduce((acc, curr) => acc + curr._count, 0);
 
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
@@ -74,13 +87,9 @@ export default async function DashboardPage() {
     }
   };
 
-  /**
-   * Formatea un rango horario como "18-20" a "18:00 PM - 20:00 PM"
-   */
   const formatTimeSlot = (slot: string) => {
     if (!slot) return "Sin horario";
     if (!slot.includes('-')) return slot;
-    
     try {
       const parts = slot.split('-');
       return parts.map(part => {
@@ -111,15 +120,6 @@ export default async function DashboardPage() {
       </header>
 
       <div className="px-6 pb-4 pt-4 space-y-4">
-        {isUsingFallback && (
-          <Alert className="bg-blue-50 border-blue-200 text-blue-800">
-            <Info className="h-4 w-4" />
-            <AlertDescription className="text-[11px] font-medium">
-              Mostrando órdenes globales (Modo Debug). No se encontraron pedidos específicos para tu ID ({driverId}).
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="relative group">
           <Search className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
           <input 
@@ -128,10 +128,16 @@ export default async function DashboardPage() {
           />
         </div>
 
-        <Tabs defaultValue="today" className="w-full">
-          <TabsList className="w-full bg-white/50 p-1 h-11 border-none shadow-sm">
-            <TabsTrigger value="today" className="flex-1 text-[10px] font-bold uppercase tracking-wider">
-              {isUsingFallback ? "Todas las Órdenes" : "Mis Entregas"} ({orders.length})
+        <Tabs defaultValue={activeStatus} className="w-full">
+          <TabsList className="w-full bg-white/50 p-1 h-11 border-none shadow-sm flex overflow-x-auto no-scrollbar">
+            <TabsTrigger value="ALL" asChild className="flex-1 text-[9px] font-bold uppercase tracking-wider">
+              <Link href="/dashboard?status=ALL">Todos ({totalAll})</Link>
+            </TabsTrigger>
+            <TabsTrigger value="IN_ROUTE" asChild className="flex-1 text-[9px] font-bold uppercase tracking-wider">
+              <Link href="/dashboard?status=IN_ROUTE">En Ruta ({totalInRoute})</Link>
+            </TabsTrigger>
+            <TabsTrigger value="DELIVERED" asChild className="flex-1 text-[9px] font-bold uppercase tracking-wider">
+              <Link href="/dashboard?status=DELIVERED">Entregados ({totalDelivered})</Link>
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -144,7 +150,7 @@ export default async function DashboardPage() {
               key={order.id} 
               href={`/orders/${order.id}`} 
               className="block animate-in fade-in slide-in-from-bottom-4 duration-500"
-              style={{ animationDelay: `${index * 100}ms` }}
+              style={{ animationDelay: `${index * 50}ms` }}
             >
               <Card className="rounded-2xl border-none shadow-sm hover:shadow-md transition-all active:scale-[0.98] bg-white overflow-hidden">
                 <CardContent className="p-5">
@@ -194,8 +200,8 @@ export default async function DashboardPage() {
         ) : (
           <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-100">
             <Package className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-slate-500 text-sm font-bold">Sin datos encontrados.</p>
-            <p className="text-slate-400 text-xs mt-1">La base de datos parece estar vacía o inaccesible.</p>
+            <p className="text-slate-500 text-sm font-bold">Sin pedidos en esta sección.</p>
+            <p className="text-slate-400 text-xs mt-1">Intenta con otro filtro arriba.</p>
           </div>
         )}
       </main>
