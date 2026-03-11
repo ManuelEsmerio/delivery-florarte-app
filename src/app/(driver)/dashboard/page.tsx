@@ -9,17 +9,20 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function DashboardPage() {
+  // Aseguramos que la página sea dinámica leyendo cookies
+  await cookies();
   const session = await getDriverSession();
   const driverId = session.id;
 
   console.log(`DEBUG [Dashboard]: Consultando órdenes para driverId: ${driverId}`);
 
-  // 1. Intentamos cargar órdenes específicas del repartidor
+  // Intentamos cargar órdenes específicas del repartidor
   let orders = await prisma.order.findMany({
     where: {
       deliveryDriverId: driverId,
@@ -34,7 +37,7 @@ export default async function DashboardPage() {
     take: 20
   });
 
-  // 2. Fallback Debug: Si no hay órdenes para ese ID, cargamos CUALQUIER orden 
+  // Fallback Debug: Si no hay órdenes para ese ID, cargamos CUALQUIER orden 
   // para verificar que la DB tiene datos y la conexión funciona.
   let isUsingFallback = false;
   if (orders.length === 0) {
@@ -47,7 +50,7 @@ export default async function DashboardPage() {
       orderBy: {
         createdAt: 'desc'
       },
-      take: 5
+      take: 10
     });
     isUsingFallback = orders.length > 0;
   }
@@ -92,7 +95,7 @@ export default async function DashboardPage() {
           <Alert className="bg-blue-50 border-blue-200 text-blue-800">
             <Info className="h-4 w-4" />
             <AlertDescription className="text-[11px] font-medium">
-              Mostrando órdenes globales (Modo Debug). No se encontraron pedidos asignados a tu ID ({driverId}).
+              Mostrando órdenes globales (Modo Debug). No se encontraron pedidos específicos para tu ID ({driverId}).
             </AlertDescription>
           </Alert>
         )}
