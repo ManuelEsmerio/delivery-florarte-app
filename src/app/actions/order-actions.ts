@@ -60,14 +60,15 @@ export async function updateOrderStatus(orderId: number, status: any) {
 
 /**
  * Reporta un intento de entrega fallido (No hay nadie).
+ * El motivo se guarda en deliveryNotes.
  */
 export async function reportFailedDelivery(orderId: number, comment: string) {
   try {
     const order = await prisma.order.update({
       where: { id: orderId },
       data: {
-        status: 'FAILED' as any, // Marcamos como fallido para saltarlo
-        deliveryNotes: comment,
+        status: 'FAILED' as any, 
+        deliveryNotes: comment, // Se guarda el motivo en deliveryNotes
       },
       include: {
         user: true,
@@ -84,18 +85,23 @@ export async function reportFailedDelivery(orderId: number, comment: string) {
         subject: `Intento de entrega fallido - Pedido #${order.id}`,
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; padding: 20px;">
-            <h2 style="color: #ec5b13;">Lo sentimos, no pudimos entregarte</h2>
-            <p>Hola <strong>${customerName}</strong>,</p>
-            <p>Hemos intentado entregar tu pedido #${order.id} hoy a las ${new Date().toLocaleTimeString()}.</p>
-            <div style="background: #fff4f0; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ec5b13;">
-              <p style="margin: 0; font-weight: bold;">Nota del repartidor:</p>
-              <p style="margin: 5px 0 0 0; font-style: italic;">"${comment}"</p>
+            <div style="text-align: center; margin-bottom: 20px;">
+              <h2 style="color: #d93025; margin: 0;">Intento de Entrega Fallido</h2>
+              <p style="color: #5f6368;">Pedido #${order.id}</p>
             </div>
-            <p style="font-weight: bold; color: #555;">
-              El repartidor tuvo 10 min llamando a la puerta pero no recibió respuesta y tu producto será regresado a la tienda.
-            </p>
-            <p style="font-size: 12px; color: #999; margin-top: 30px;">
-              Si tienes dudas, por favor contacta con soporte.
+            <p>Hola <strong>${customerName}</strong>,</p>
+            <p>Hemos intentado entregar tu pedido hoy a las ${new Date().toLocaleTimeString()}.</p>
+            <div style="background: #fdf2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d93025;">
+              <p style="margin: 0; font-weight: bold; color: #d93025;">Nota del repartidor:</p>
+              <p style="margin: 5px 0 0 0; font-style: italic; color: #3c4043;">"${comment}"</p>
+            </div>
+            <div style="background: #fff8e1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f9ab00;">
+              <p style="margin: 0; font-size: 14px; color: #3c4043;">
+                <strong>Aviso importante:</strong> El repartidor tuvo 10 min llamando a la puerta pero no recibió respuesta y tu producto será regresado a la tienda.
+              </p>
+            </div>
+            <p style="font-size: 12px; color: #999; margin-top: 30px; text-align: center; border-top: 1px solid #eee; pt: 20px;">
+              Si tienes dudas, por favor contacta con nuestro equipo de soporte.
             </p>
           </div>
         `
@@ -139,12 +145,10 @@ export async function completeDelivery(
       data: {
         status: 'DELIVERED',
         deliveredAt: new Date(),
-        ...({
-          proofOfDeliverySignature: finalSignatureUrl,
-          proofOfDeliveryReceiver: receiverName,
-          deliveryNotes: observations || null
-        } as any)
-      },
+        proofOfDeliverySignature: finalSignatureUrl,
+        proofOfDeliveryReceiver: receiverName,
+        deliveryNotes: observations || null
+      } as any,
       include: {
         items: true,
         user: true,
@@ -170,23 +174,26 @@ export async function completeDelivery(
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
             <div style="background-color: #ec5b13; padding: 20px; text-align: center; color: white;">
-              <h2>¡Entrega Confirmada!</h2>
+              <h2 style="margin: 0;">¡Entrega Confirmada!</h2>
             </div>
             <div style="padding: 20px;">
               <p>Hola <strong>${customerName}</strong>,</p>
               <p>Tu pedido ha sido entregado exitosamente.</p>
               <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <p><strong>Orden:</strong> #${updatedOrder.id}</p>
-                <p><strong>Recibido por:</strong> ${receiverName}</p>
-                <p><strong>Fecha:</strong> ${new Date().toLocaleString()}</p>
+                <p style="margin: 5px 0;"><strong>Orden:</strong> #${updatedOrder.id}</p>
+                <p style="margin: 5px 0;"><strong>Recibido por:</strong> ${receiverName}</p>
+                <p style="margin: 5px 0;"><strong>Fecha:</strong> ${new Date().toLocaleString()}</p>
               </div>
-              <h3>Detalle del Pedido</h3>
+              <h3 style="border-bottom: 2px solid #ec5b13; padding-bottom: 5px;">Detalle del Pedido</h3>
               <table style="width: 100%; border-collapse: collapse;">${itemsHtml}</table>
               ${finalSignatureUrl ? `
-                <div style="margin-top: 20px; text-align: center;">
-                  <p style="font-size: 11px; color: #999;">Firma de recepción:</p>
-                  <img src="${finalSignatureUrl}" width="140" style="border: 1px solid #ddd;" />
+                <div style="margin-top: 30px; text-align: center; border-top: 1px dashed #ddd; pt: 20px;">
+                  <p style="font-size: 11px; color: #999; margin-bottom: 10px;">Firma de recepción:</p>
+                  <img src="${finalSignatureUrl}" width="180" style="border: 1px solid #eee; padding: 5px; border-radius: 4px;" />
                 </div>` : ''}
+            </div>
+            <div style="background: #f4f4f4; padding: 15px; text-align: center; font-size: 11px; color: #777;">
+              Gracias por confiar en DriveMate.
             </div>
           </div>
         `
