@@ -15,12 +15,13 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function DashboardPage() {
-  // Aseguramos que se lean los headers frescos en cada petición
+  // Forzamos lectura de cookies para garantizar contexto dinámico y evitar caché
   await cookies();
+  
   const session = await getDriverSession();
 
   if (!session) {
-    console.log('DEBUG [Dashboard]: Sin sesión activa, redirigiendo a /login');
+    console.log('DEBUG [Dashboard]: Sin sesión detectada en cookies, redirigiendo...');
     redirect('/login');
   }
 
