@@ -10,6 +10,27 @@ export type ActionState = {
   success?: boolean;
 } | null;
 
+export type DriverSession = {
+  id: number;
+  name: string;
+  role: string;
+  email: string;
+};
+
+/**
+ * Obtiene la sesión actual del repartidor desde las cookies.
+ */
+export async function getDriverSession(): Promise<DriverSession | null> {
+  const cookieStore = await cookies();
+  const session = cookieStore.get('driver_session');
+  if (!session) return null;
+  try {
+    return JSON.parse(session.value) as DriverSession;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Acción de servidor para manejar el inicio de sesión del repartidor.
  */
@@ -22,28 +43,24 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
   }
 
   try {
-    // Buscar usuario por email
     const user = await prisma.user.findUnique({
       where: { email },
     });
 
     if (!user || !user.passwordHash) {
-      return { error: 'Credenciales inválidas o usuario no encontrado.' };
+      return { error: 'Credenciales inválidas.' };
     }
 
-    // Comparar contraseña con el hash almacenado (bcryptjs)
     const passwordMatch = await bcrypt.compare(password, user.passwordHash);
 
     if (!passwordMatch) {
       return { error: 'Credenciales inválidas.' };
     }
 
-    // Validar que el usuario tenga estrictamente el rol de repartidor
     if (user.role !== 'DELIVERY') {
-      return { error: 'Acceso denegado. Esta aplicación es exclusiva para repartidores.' };
+      return { error: 'Acceso denegado. Exclusivo para repartidores.' };
     }
 
-    // Establecer una cookie de sesión simple para el prototipo
     const cookieStore = await cookies();
     cookieStore.set('driver_session', JSON.stringify({
       id: user.id,
@@ -53,13 +70,13 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
     }), { 
       httpOnly: true, 
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7, // 1 semana
+      maxAge: 60 * 60 * 24 * 7,
       path: '/'
     });
 
     return { success: true };
   } catch (error) {
     console.error('Login error:', error);
-    return { error: 'Ocurrió un error al conectar con la base de datos.' };
+    return { error: 'Error de conexión con la base de datos.' };
   }
 }
