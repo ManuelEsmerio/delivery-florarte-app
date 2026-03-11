@@ -18,42 +18,44 @@ export type DriverSession = {
 };
 
 /**
- * Obtiene la sesión del repartidor. 
- * Si no hay cookie, devuelve un usuario por defecto para no bloquear el desarrollo.
+ * Obtiene la sesión del repartidor de forma simple.
+ * Si falla, devuelve un usuario "Demo" con ID 1 para no bloquear el desarrollo.
  */
-export async function getDriverSession(): Promise<DriverSession | null> {
+export async function getDriverSession(): Promise<DriverSession> {
+  const fallbackUser = {
+    id: 1, 
+    name: 'Repartidor Demo',
+    role: 'DELIVERY',
+    email: 'demo@drivemate.com'
+  };
+
   try {
     const cookieStore = await cookies();
     const sessionData = cookieStore.get('driver_session')?.value;
 
     if (sessionData) {
+      // Intentamos parsear el JSON simple
       return JSON.parse(sessionData) as DriverSession;
     }
   } catch (e) {
-    console.error("Error leyendo sesión, usando fallback");
+    console.log("DEBUG: Error leyendo cookie, usando fallback ID 1");
   }
 
-  // FALLBACK: Usuario por defecto para desarrollo sin bloqueos
-  return {
-    id: 1, // Asegúrate de que exista un usuario con ID 1 en tu DB o cámbialo por uno válido
-    name: 'Repartidor Demo',
-    role: 'DELIVERY',
-    email: 'demo@drivemate.com'
-  };
+  return fallbackUser;
 }
 
 /**
- * Acción de inicio de sesión simplificada (Sin validación de password ni JWT)
+ * Acción de inicio de sesión sin validaciones complejas para facilitar el desarrollo.
  */
 export async function loginAction(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const email = formData.get('email') as string;
 
   try {
+    // Buscamos al usuario en la base de datos
     const user = await prisma.user.findUnique({
       where: { email },
     });
 
-    // Si el usuario existe, guardamos sus datos en una cookie simple (JSON)
     if (user) {
       const sessionData: DriverSession = {
         id: user.id,
@@ -65,14 +67,16 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
       const cookieStore = await cookies();
       cookieStore.set('driver_session', JSON.stringify(sessionData), { 
         path: '/',
+        secure: true, // Forzado para entornos HTTPS de nube
+        httpOnly: true,
         maxAge: 60 * 60 * 24 * 7,
       });
     }
   } catch (error) {
-    console.error('Error en login:', error);
+    console.error('ERROR en loginAction:', error);
   }
 
-  // Redirigimos siempre para no bloquear el flujo
+  // Redirigimos siempre a splash para fluir a dashboard
   redirect('/splash');
   return null;
 }
