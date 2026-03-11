@@ -2,18 +2,12 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { getDriverSession } from './auth-actions';
 import { revalidatePath } from 'next/cache';
-import { cookies } from 'next/headers';
 
 /**
- * Actualiza el estado de una orden.
+ * Actualiza el estado de una orden sin validaciones estrictas de sesión.
  */
 export async function updateOrderStatus(orderId: number, status: any) {
-  await cookies(); // Asegura contexto dinámico
-  const session = await getDriverSession();
-  if (!session) throw new Error('No autorizado');
-
   await prisma.order.update({
     where: { id: orderId },
     data: { 
@@ -30,10 +24,6 @@ export async function updateOrderStatus(orderId: number, status: any) {
  * Finaliza la entrega con firma y nombre del receptor.
  */
 export async function completeDelivery(orderId: number, receiverName: string, signatureUrl: string) {
-  await cookies(); // Asegura contexto dinámico
-  const session = await getDriverSession();
-  if (!session) throw new Error('No autorizado');
-
   await prisma.order.update({
     where: { id: orderId },
     data: {
