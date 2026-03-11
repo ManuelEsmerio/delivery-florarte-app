@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useState, useTransition } from 'react';
-import { prisma } from '@/lib/prisma';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -11,20 +10,16 @@ import {
   CheckCircle2,
   User,
   Store,
-  Map,
-  CreditCard,
-  StickyNote,
   FileText,
   AlertTriangle,
-  ChevronRight
 } from 'lucide-react';
-import Link from 'next/link';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
-import { reportFailedDelivery, updateOrderStatus } from '@/app/actions/order-actions';
+import { reportFailedDelivery } from '@/app/actions/order-actions';
 import {
   Dialog,
   DialogContent,
@@ -50,15 +45,26 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     async function loadOrder() {
-      const res = await fetch(`/api/orders/${id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setOrder(data);
+      try {
+        const res = await fetch(`/api/orders/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setOrder(data);
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "No se pudo cargar la información del pedido."
+          });
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
     loadOrder();
-  }, [id]);
+  }, [id, toast]);
 
   const handleOpenGPS = () => {
     if (order?.orderAddress?.formattedAddress) {
@@ -82,7 +88,7 @@ export default function OrderDetailPage() {
       if (res.success) {
         toast({
           title: "Incidencia Reportada",
-          description: "Se ha notificado al cliente que el pedido será regresado a la tienda."
+          description: "Se ha notificado al cliente el motivo del fallo."
         });
         setShowFailDialog(false);
         router.push(`/dashboard?driverId=${driverIdStr}`);
@@ -96,8 +102,22 @@ export default function OrderDetailPage() {
     });
   };
 
-  if (isLoading) return <div className="p-8 text-center font-bold">Cargando detalles...</div>;
-  if (!order) return <div className="p-8 text-center font-bold">Pedido no encontrado.</div>;
+  if (isLoading) return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-white">
+      <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      <p className="mt-4 font-bold text-slate-400 uppercase tracking-widest text-xs">Cargando pedido...</p>
+    </div>
+  );
+
+  if (!order) return (
+    <div className="p-8 text-center flex flex-col items-center justify-center min-h-screen">
+      <AlertTriangle className="size-12 text-red-500 mb-4" />
+      <h2 className="text-xl font-black">Pedido no encontrado</h2>
+      <Button asChild className="mt-6 rounded-xl bg-primary" onClick={() => router.back()}>
+        <span>Regresar</span>
+      </Button>
+    </div>
+  );
 
   const senderInfo = order.isGuest 
     ? {
@@ -106,78 +126,74 @@ export default function OrderDetailPage() {
         phone: order.guestPhone || null
       }
     : {
-        name: order.user?.name || "Usuario",
+        name: order.user?.name || "Cliente Registrado",
         email: order.user?.email || "Sin email",
         phone: order.user?.phone || null
       };
 
   return (
-    <div className="flex flex-col min-h-screen animate-in fade-in duration-300 bg-background">
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md px-4 py-4 border-b border-slate-200 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full size-10">
-              <ArrowLeft className="w-6 h-6" />
-            </Button>
-            <div>
-              <h1 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Orden de Entrega</h1>
-              <p className="text-lg font-black leading-none">ORD-{order.id}</p>
-            </div>
+    <div className="flex flex-col min-h-screen bg-slate-50/30">
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md px-4 py-4 border-b border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
+            <ArrowLeft className="w-6 h-6" />
+          </Button>
+          <div>
+            <h1 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Detalle de Orden</h1>
+            <p className="text-lg font-black leading-none text-slate-900">#{order.id}</p>
           </div>
-          <Badge className={`border-none text-[10px] font-black tracking-wider uppercase px-3 py-1 ${
-            order.status === 'DELIVERED' ? 'bg-green-100 text-green-700' : 
-            order.status === 'FAILED' ? 'bg-red-100 text-red-700' : 'bg-primary/10 text-primary'
-          }`}>
-            {order.status}
-          </Badge>
         </div>
+        <Badge className={`border-none text-[10px] font-black uppercase px-3 py-1 rounded-xl ${
+          order.status === 'DELIVERED' ? 'bg-green-500 text-white' : 
+          order.status === 'FAILED' ? 'bg-red-500 text-white' : 'bg-primary text-white'
+        }`}>
+          {order.status === 'DELIVERED' ? 'Entregado' : order.status === 'FAILED' ? 'Fallido' : 'En Ruta'}
+        </Badge>
       </header>
 
       <main className="flex-1 pb-32">
         {order.status !== 'DELIVERED' && order.status !== 'FAILED' && (
-          <section className="relative h-64 w-full overflow-hidden">
+          <section className="relative h-60 w-full overflow-hidden mb-6">
             <img 
               src={`https://picsum.photos/seed/${order.id}/800/400`} 
-              alt="Vista del mapa" 
+              alt="Mapa" 
               className="w-full h-full object-cover grayscale-[0.2]"
             />
-            <div className="absolute inset-0 map-gradient"></div>
-            
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-50/80 to-transparent"></div>
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
               <div className="relative flex items-center justify-center">
-                <div className="absolute size-14 bg-primary/30 rounded-full animate-ping"></div>
-                <div className="size-12 bg-primary rounded-full flex items-center justify-center shadow-2xl border-2 border-white">
-                  <MapPin className="text-white w-6 h-6" />
+                <div className="absolute size-16 bg-primary/20 rounded-full animate-ping"></div>
+                <div className="size-14 bg-primary rounded-2xl flex items-center justify-center shadow-2xl border-4 border-white">
+                  <MapPin className="text-white w-7 h-7" />
                 </div>
               </div>
             </div>
-
             <Button 
               onClick={handleOpenGPS}
-              className="absolute bottom-6 right-4 bg-secondary hover:bg-secondary/90 text-white px-6 py-6 rounded-2xl shadow-2xl"
+              className="absolute bottom-6 right-4 bg-white text-primary hover:bg-slate-50 px-6 py-6 rounded-2xl shadow-2xl border border-slate-100 font-black text-xs uppercase tracking-widest"
             >
-              <Navigation className="w-5 h-5 mr-2 text-primary fill-primary" />
-              <span className="font-bold text-sm">Abrir GPS</span>
+              <Navigation className="size-4 mr-2" />
+              Abrir GPS
             </Button>
           </section>
         )}
 
-        <div className={`px-4 space-y-3 relative z-10 ${order.status !== 'DELIVERED' && order.status !== 'FAILED' ? '-mt-6' : 'mt-6'}`}>
+        <div className="px-6 space-y-4">
           {order.status === 'DELIVERED' && (
-            <div className="bg-white p-6 rounded-2xl shadow-sm border-2 border-green-50 card-shadow space-y-4">
-              <div className="flex items-center gap-2 text-green-600">
+            <div className="bg-green-50 p-6 rounded-[2rem] border-2 border-green-100 space-y-4">
+              <div className="flex items-center gap-2 text-green-700">
                 <CheckCircle2 className="w-6 h-6" />
-                <h3 className="font-black uppercase tracking-tight text-sm">Entrega Completada</h3>
+                <h3 className="font-black uppercase tracking-tight text-sm">Entrega Exitosa</h3>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 bg-white/50 p-4 rounded-2xl border border-green-100">
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Recibido por</p>
-                  <p className="font-bold text-sm text-slate-800">{order.proofOfDeliveryReceiver || "No especificado"}</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase">Recibió</p>
+                  <p className="font-bold text-sm text-slate-800">{order.proofOfDeliveryReceiver || "N/A"}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Fecha y Hora</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase">Fecha</p>
                   <p className="font-bold text-[11px] text-slate-800">
-                    {order.deliveredAt ? new Date(order.deliveredAt).toLocaleString() : "N/A"}
+                    {order.deliveredAt ? new Date(order.deliveredAt).toLocaleTimeString() : "N/A"}
                   </p>
                 </div>
               </div>
@@ -185,136 +201,132 @@ export default function OrderDetailPage() {
           )}
 
           {order.status === 'FAILED' && (
-            <div className="bg-red-50 p-6 rounded-2xl shadow-sm border-2 border-red-100 card-shadow space-y-4">
-              <div className="flex items-center gap-2 text-red-600">
+            <div className="bg-red-50 p-6 rounded-[2rem] border-2 border-red-100 space-y-4">
+              <div className="flex items-center gap-2 text-red-700">
                 <AlertTriangle className="w-6 h-6" />
-                <h3 className="font-black uppercase tracking-tight text-sm">Entrega Fallida</h3>
+                <h3 className="font-black uppercase tracking-tight text-sm">Intento Fallido</h3>
               </div>
-              <p className="text-sm text-red-800 bg-white/50 p-3 rounded-xl border border-red-100">
-                <strong>Motivo:</strong> {order.deliveryNotes || "No se pudo contactar al cliente."}
+              <p className="text-sm text-red-800 bg-white/50 p-4 rounded-2xl border border-red-100 leading-relaxed italic">
+                "{order.deliveryNotes || "El cliente no respondió a los llamados."}"
               </p>
             </div>
           )}
 
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between card-shadow">
+          <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="size-12 bg-slate-50 rounded-xl flex items-center justify-center">
+              <div className="size-12 bg-slate-50 rounded-2xl flex items-center justify-center">
                 <Store className="w-6 h-6 text-slate-400" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Remitente</p>
-                <h3 className="font-bold text-sm leading-tight">{senderInfo.name}</h3>
-                <p className="text-[10px] text-slate-500">{senderInfo.email}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tienda / Remitente</p>
+                <h3 className="font-black text-sm text-slate-900">{senderInfo.name}</h3>
+                <p className="text-[10px] text-slate-500 font-medium">{senderInfo.email}</p>
               </div>
             </div>
-            {senderInfo.phone && (
-              <Button variant="ghost" size="icon" asChild className="size-10 rounded-full bg-slate-100 text-slate-600">
-                <a href={`tel:${senderInfo.phone}`}>
-                  <Phone className="w-4 h-4" />
-                </a>
-              </Button>
-            )}
           </div>
 
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between card-shadow">
-            <div className="flex items-center gap-4">
-              <div className="size-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                <User className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Destinatario</p>
-                <h3 className="font-bold text-sm leading-tight">
-                  {order.orderAddress?.recipientName || "Cliente"}
-                </h3>
-                <p className="text-[10px] text-slate-500 line-clamp-1">{order.orderAddress?.formattedAddress}</p>
-              </div>
-            </div>
-            {order.orderAddress?.recipientPhone && (
-              <Button variant="ghost" size="icon" asChild className="size-10 rounded-full bg-primary/10 text-primary">
-                <a href={`tel:${order.orderAddress.recipientPhone}`}>
-                  <Phone className="w-4 h-4" />
-                </a>
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <section className="mt-8 px-4">
-          <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-4 px-1 flex items-center gap-2">
-            <FileText className="w-3 h-3" />
-            Artículos ({order.items?.length || 0})
-          </h3>
-          <div className="space-y-3">
-            {order.items?.map((item: any) => (
-              <div key={item.id} className="flex items-center justify-between bg-white p-3 rounded-2xl border border-slate-100 card-shadow">
-                <div className="flex items-center gap-3">
-                  <div className="size-16 relative rounded-xl overflow-hidden bg-slate-50 shrink-0">
-                    <Image 
-                      src={item.imageSnap || "https://picsum.photos/seed/product/200/200"} 
-                      alt={item.productNameSnap} 
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm leading-tight">{item.productNameSnap}</h4>
-                  </div>
+          <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="size-12 bg-primary/10 rounded-2xl flex items-center justify-center">
+                  <User className="w-6 h-6 text-primary" />
                 </div>
-                <span className="font-black text-slate-900 bg-slate-50 size-8 flex items-center justify-center rounded-lg text-xs">x{item.quantity}</span>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Destinatario</p>
+                  <h3 className="font-black text-sm text-slate-900">
+                    {order.orderAddress?.recipientName || "Cliente"}
+                  </h3>
+                </div>
               </div>
-            ))}
+              {order.orderAddress?.recipientPhone && (
+                <Button variant="ghost" size="icon" asChild className="size-12 rounded-2xl bg-primary/10 text-primary">
+                  <a href={`tel:${order.orderAddress.recipientPhone}`}>
+                    <Phone className="w-5 h-5" />
+                  </a>
+                </Button>
+              )}
+            </div>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Dirección Completa</p>
+              <p className="text-xs font-bold text-slate-600 leading-relaxed">{order.orderAddress?.formattedAddress}</p>
+            </div>
           </div>
-        </section>
 
-        {order.status !== 'DELIVERED' && order.status !== 'FAILED' && (
-          <section className="mt-8 px-4 flex flex-col gap-4">
-            <div className="flex flex-col gap-3">
+          <section className="pt-4">
+            <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              Artículos ({order.items?.length || 0})
+            </h3>
+            <div className="space-y-3">
+              {order.items?.map((item: any) => (
+                <div key={item.id} className="flex items-center justify-between bg-white p-4 rounded-[1.5rem] border border-slate-100 shadow-sm">
+                  <div className="flex items-center gap-4">
+                    <div className="size-14 relative rounded-2xl overflow-hidden bg-slate-50 shrink-0">
+                      <Image 
+                        src={item.imageSnap || "https://picsum.photos/seed/product/200/200"} 
+                        alt={item.productNameSnap} 
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <div>
+                      <h4 className="font-black text-sm text-slate-900 leading-tight">{item.productNameSnap}</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">Ref: {item.id}</p>
+                    </div>
+                  </div>
+                  <span className="font-black text-primary bg-primary/10 px-3 py-1 rounded-lg text-xs">x{item.quantity}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {order.status !== 'DELIVERED' && order.status !== 'FAILED' && (
+            <section className="pt-8 flex flex-col gap-3">
               <Button 
                 onClick={() => setShowFailDialog(true)}
                 variant="outline" 
-                className="w-full border-red-200 text-red-600 bg-red-50/30 h-14 rounded-2xl font-bold flex items-center justify-center gap-2"
+                className="w-full border-red-200 text-red-600 bg-red-50/50 h-14 rounded-2xl font-black text-xs uppercase tracking-widest"
               >
-                <AlertTriangle className="w-5 h-5" />
-                No hay nadie en el domicilio
+                <AlertTriangle className="size-4 mr-2" />
+                No hay nadie en domicilio
               </Button>
 
-              <Button className="w-full bg-primary text-white h-16 rounded-2xl font-bold shadow-xl shadow-primary/20" asChild>
+              <Button className="w-full bg-primary text-white h-16 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20" asChild>
                 <Link href={`/orders/${order.id}/deliver?driverId=${driverIdStr}`}>
-                  <CheckCircle2 className="w-5 h-5 mr-2" />
+                  <CheckCircle2 className="size-5 mr-2" />
                   Confirmar Entrega
                 </Link>
               </Button>
-            </div>
-          </section>
-        )}
+            </section>
+          )}
+        </div>
       </main>
 
-      {/* Dialog para Reporte de Fallo */}
       <Dialog open={showFailDialog} onOpenChange={setShowFailDialog}>
-        <DialogContent className="rounded-[2rem] border-none p-8 max-w-[90%] mx-auto">
+        <DialogContent className="rounded-[2.5rem] border-none p-8 max-w-[90%] mx-auto bg-white">
           <DialogHeader>
             <DialogTitle className="text-xl font-black flex items-center gap-2 text-red-600">
               <AlertTriangle className="size-6" />
               Reportar Incidencia
             </DialogTitle>
-            <DialogDescription className="text-sm font-medium pt-2">
-              Confirma que has intentado contactar al cliente y que no hubo respuesta tras 10 minutos de espera.
+            <DialogDescription className="text-sm font-bold text-slate-500 pt-2 leading-relaxed">
+              Confirma que has intentado contactar al cliente y no hubo respuesta tras 10 minutos de espera.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
-              <p className="text-xs text-amber-800 font-bold leading-relaxed">
-                Aviso: Al confirmar, se enviará un correo al cliente indicando que su pedido regresará a la tienda por falta de respuesta.
+            <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100">
+              <p className="text-[10px] text-amber-800 font-black uppercase leading-relaxed">
+                Aviso: Se enviará un correo notificando que el pedido regresará a tienda por falta de respuesta.
               </p>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-slate-400">Comentario del repartidor</label>
+              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Comentario del repartidor</label>
               <Textarea 
-                placeholder="Ej. Toqué la puerta varias veces y llamé al teléfono pero no contestaron." 
+                placeholder="Indica el motivo detallado..." 
                 value={failComment}
                 onChange={(e) => setFailComment(e.target.value)}
-                className="rounded-xl min-h-[100px] border-slate-200"
+                className="rounded-2xl min-h-[100px] border-slate-200 focus:ring-primary font-medium"
               />
             </div>
           </div>
@@ -323,14 +335,14 @@ export default function OrderDetailPage() {
             <Button 
               onClick={handleReportFail}
               disabled={isPending}
-              className="w-full bg-red-600 hover:bg-red-700 h-14 rounded-2xl font-bold text-white shadow-lg shadow-red-200"
+              className="w-full bg-red-600 hover:bg-red-700 h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-white"
             >
-              {isPending ? "Procesando..." : "Confirmar y Saltar Pedido"}
+              {isPending ? "Procesando..." : "Confirmar Incidencia"}
             </Button>
             <Button 
               variant="ghost" 
               onClick={() => setShowFailDialog(false)}
-              className="w-full font-bold text-slate-400"
+              className="w-full font-black text-slate-400 text-xs uppercase tracking-widest"
             >
               Cancelar
             </Button>
