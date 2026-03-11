@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,78 +8,869 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autocoincrement())
-  email     String   @unique
-  password  String
-  name      String
-  role      String   @default("DELIVERY") // "ADMIN", "DELIVERY", "CUSTOMER"
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  orders    Order[]  @relation("DriverOrders")
+  id                      Int                       @id @default(autoincrement())
+  firebaseUid             String?                   @unique @db.VarChar(128)
+  name                    String                    @db.VarChar(150)
+  email                   String                    @unique @db.VarChar(255)
+  passwordHash            String?                   @db.VarChar(255)
+  phone                   String?                   @db.VarChar(20)
+  birthdate               DateTime?
+  role                    users_role                @default(CUSTOMER)
+  profilePicUrl           String?                   @db.VarChar(500)
+  loyaltyPoints           Int                       @default(0)
+  isMarketingOptIn        Boolean                   @default(false)
+  emailVerifiedAt         DateTime?
+  passwordResetToken      String?                   @db.VarChar(255)
+  passwordResetExpiry     DateTime?
+  emailVerificationToken  String?                   @db.VarChar(255)
+  emailVerificationExpiry DateTime?
+  isDeleted               Boolean                   @default(false)
+  deletedAt               DateTime?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  tokenVersion            Int                       @default(1)
+  addresses               addresses[]
+  carts                   carts[]
+  chat_sessions           chat_sessions[]
+  coupon_redemptions      coupon_redemptions[]
+  coupon_users            coupon_users[]
+  loyalty_history         loyalty_history[]
+  order_cancellation_logs order_cancellation_logs[]
+  driverOrders            Order[]                   @relation("DriverOrders")
+  orders                  Order[]
+  testimonials            testimonials[]
+  wishlist_items          wishlist_items[]
 
+  @@index([emailVerificationToken])
+  @@index([passwordResetToken])
   @@map("users")
 }
 
 model Order {
-  id                        Int           @id @default(autoincrement())
-  userId                    Int?
-  isGuest                   Boolean       @default(false)
-  guestName                 String?
-  guestEmail                String?
-  guestPhone                String?
-  status                    String        // "READY_FOR_SHIPMENT", "OUT_FOR_DELIVERY", "DELIVERED", etc.
-  total                     Decimal       @db.Decimal(10, 2)
-  subtotal                  Decimal?      @db.Decimal(10, 2)
-  shippingCost              Decimal?      @db.Decimal(10, 2)
-  couponDiscount            Decimal?      @db.Decimal(10, 2)
-  deliveryDate              DateTime?
-  deliveryTimeSlot          String?
-  dedication                String?       @db.Text
-  deliveryNotes             String?       @db.Text
-  isAnonymous               Boolean       @default(false)
-  createdAt                 DateTime      @default(now())
-  updatedAt                 DateTime      @updatedAt
-  isPickup                  Boolean       @default(false)
-  orderToken                String?       @unique
-  paymentStatus             String        @default("PENDING")
-  deliveryDriverId          Int?
-  
-  // Nuevos campos para la confirmación de entrega
-  proofOfDeliveryReceiver   String?
-  proofOfDeliverySignature  String?       @db.Text
-  deliveredAt               DateTime?
+  id                       Int                       @id @default(autoincrement())
+  userId                   Int?
+  isGuest                  Boolean                   @default(false)
+  guestName                String?                   @db.VarChar(150)
+  guestEmail               String?                   @db.VarChar(255)
+  guestPhone               String?                   @db.VarChar(30)
+  sessionId                String?                   @db.VarChar(128)
+  deliveryDriverId         Int?
+  couponId                 Int?
+  couponCodeSnap           String?                   @db.VarChar(50)
+  status                   orders_status             @default(CREATED)
+  subtotal                 Decimal                   @db.Decimal(10, 2)
+  couponDiscount           Decimal                   @default(0.00) @db.Decimal(10, 2)
+  shippingCost             Decimal                   @default(0.00) @db.Decimal(10, 2)
+  total                    Decimal                   @db.Decimal(10, 2)
+  deliveryDate             DateTime                  @db.Date
+  deliveryTimeSlot         String                    @db.VarChar(50)
+  dedication               String?                   @db.Text
+  deliveryNotes            String?                   @db.Text
+  isAnonymous              Boolean                   @default(false)
+  signature                String?                   @db.VarChar(500)
+  deliveredAt              DateTime?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  isPickup                 Boolean                   @default(false)
+  orderToken               String?                   @unique @db.Char(36)
+  paymentStatus            orders_paymentStatus      @default(PENDING)
+  flowerPurchaseDate       DateTime?                 @db.Date
+  proofOfDeliveryReceiver  String?
+  proofOfDeliverySignature String?                   @db.LongText
+  coupon_redemptions       coupon_redemptions[]
+  loyalty_history          loyalty_history[]
+  orderAddress             OrderAddress?
+  order_cancellation_logs  order_cancellation_logs[]
+  order_cancellations      order_cancellations[]
+  items                    OrderItem[]
+  coupons                  coupons?                  @relation(fields: [couponId], references: [id])
+  deliveryDriver           User?                     @relation("DriverOrders", fields: [deliveryDriverId], references: [id])
+  user                     User?                     @relation(fields: [userId], references: [id])
+  payment_transactions     payment_transactions[]
+  testimonials             testimonials?
 
-  user                      User?         @relation(fields: [userId], references: [id])
-  deliveryDriver            User?         @relation("DriverOrders", fields: [deliveryDriverId], references: [id])
-  items                     OrderItem[]
-  orderAddress              OrderAddress?
-
+  @@index([couponId], map: "orders_couponId_fkey")
+  @@index([deliveryDate, status])
+  @@index([deliveryDriverId], map: "orders_deliveryDriverId_fkey")
+  @@index([flowerPurchaseDate, status])
+  @@index([isGuest, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
   @@map("orders")
 }
 
 model OrderItem {
-  id              Int     @id @default(autoincrement())
-  orderId         Int
-  productNameSnap String
-  variantNameSnap String?
-  quantity        Int
-  priceSnap       Decimal @db.Decimal(10, 2)
-  imageSnap       String? @db.Text
-  order           Order   @relation(fields: [orderId], references: [id])
+  id               Int               @id @default(autoincrement())
+  orderId          Int
+  productId        Int
+  variantId        Int?
+  productNameSnap  String            @db.VarChar(255)
+  variantNameSnap  String?           @db.VarChar(100)
+  imageSnap        String?           @db.VarChar(500)
+  quantity         Int
+  unitPrice        Decimal           @db.Decimal(10, 2)
+  customPhotoUrl   String?           @db.VarChar(500)
+  createdAt        DateTime          @default(now())
+  order            Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  products         products          @relation(fields: [productId], references: [id])
+  product_variants product_variants? @relation(fields: [variantId], references: [id])
 
+  @@index([orderId], map: "order_items_orderId_fkey")
+  @@index([productId], map: "order_items_productId_fkey")
+  @@index([variantId], map: "order_items_variantId_fkey")
   @@map("order_items")
 }
 
 model OrderAddress {
-  id               Int     @id @default(autoincrement())
-  orderId          Int     @unique
-  recipientName    String
-  recipientPhone   String
-  formattedAddress String  @db.Text
-  lat              Float?
-  lng              Float?
-  order            Order   @relation(fields: [orderId], references: [id])
+  id               Int                          @id @default(autoincrement())
+  orderId          Int                          @unique
+  sourceAddressId  Int?
+  alias            String?                      @db.VarChar(100)
+  recipientName    String                       @db.VarChar(150)
+  recipientPhone   String?                      @db.VarChar(20)
+  streetName       String?                      @db.VarChar(255)
+  streetNumber     String?                      @db.VarChar(20)
+  interiorNumber   String?                      @db.VarChar(20)
+  neighborhood     String?                      @db.VarChar(150)
+  city             String?                      @db.VarChar(100)
+  state            String?                      @db.VarChar(100)
+  country          String                       @default("México") @db.VarChar(60)
+  postalCode       String?                      @db.VarChar(10)
+  addressType      order_addresses_addressType?
+  referenceNotes   String?                      @db.Text
+  latitude         Decimal?                     @db.Decimal(10, 8)
+  longitude        Decimal?                     @db.Decimal(11, 8)
+  googlePlaceId    String?                      @db.VarChar(255)
+  formattedAddress String                       @db.Text
+  isGuestAddress   Boolean                      @default(false)
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime
+  order            Order                        @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
+  @@index([postalCode, city])
+  @@index([sourceAddressId])
   @@map("order_addresses")
+}
+
+model addresses {
+  id             Int                   @id @default(autoincrement())
+  userId         Int
+  alias          String                @db.VarChar(100)
+  recipientName  String                @db.VarChar(150)
+  recipientPhone String?               @db.VarChar(20)
+  streetName     String                @db.VarChar(255)
+  streetNumber   String                @db.VarChar(20)
+  interiorNumber String?               @db.VarChar(20)
+  neighborhood   String                @db.VarChar(150)
+  city           String                @db.VarChar(100)
+  state          String                @db.VarChar(100)
+  country        String                @default("México") @db.VarChar(60)
+  postalCode     String                @db.VarChar(10)
+  addressType    addresses_addressType @default(HOME)
+  referenceNotes String?               @db.Text
+  isDefault      Boolean               @default(false)
+  latitude       Decimal?              @db.Decimal(10, 8)
+  longitude      Decimal?              @db.Decimal(11, 8)
+  googlePlaceId  String?               @db.VarChar(255)
+  isDeleted      Boolean               @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime
+  users          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "addresses_userId_fkey")
+}
+
+model announcements {
+  id             Int       @id @default(autoincrement())
+  title          String    @db.VarChar(255)
+  description    String?   @db.Text
+  buttonText     String?   @db.VarChar(100)
+  buttonLink     String?   @db.VarChar(500)
+  imageUrl       String    @db.VarChar(500)
+  imageMobileUrl String?   @db.VarChar(500)
+  isActive       Boolean   @default(false)
+  startAt        DateTime?
+  endAt          DateTime?
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime
+}
+
+model cart_items {
+  id               Int               @id @default(autoincrement())
+  cartId           Int
+  productId        Int
+  variantId        Int?
+  quantity         Int               @default(1)
+  unitPrice        Decimal           @db.Decimal(10, 2)
+  isComplement     Boolean           @default(false)
+  parentCartItemId Int?
+  customPhotoUrl   String?           @db.VarChar(500)
+  deliveryDate     DateTime?         @db.Date
+  deliveryTimeSlot String?           @db.VarChar(50)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime
+  carts            carts             @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  products         products          @relation(fields: [productId], references: [id])
+  product_variants product_variants? @relation(fields: [variantId], references: [id])
+
+  @@index([cartId])
+  @@index([parentCartItemId])
+  @@index([productId])
+  @@index([variantId])
+}
+
+model carts {
+  id         Int          @id @default(autoincrement())
+  userId     Int?
+  sessionId  String?      @db.VarChar(128)
+  status     carts_status @default(ACTIVE)
+  couponId   Int?
+  couponCode String?      @db.VarChar(50)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime
+  cart_items cart_items[]
+  coupons    coupons?     @relation(fields: [couponId], references: [id])
+  users      User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([couponId], map: "carts_couponId_fkey")
+  @@index([sessionId, status])
+  @@index([userId, status])
+}
+
+model chat_sessions {
+  id           Int      @id @default(autoincrement())
+  phone        String   @unique @db.VarChar(20)
+  userId       Int?
+  currentState String   @default("WELCOME") @db.VarChar(50)
+  lastIntent   String?  @db.VarChar(50)
+  lastMessage  String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+  context      String?  @db.Text
+  users        User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model chatbot_webhook_messages {
+  id          Int      @id @default(autoincrement())
+  messageId   String   @unique @db.VarChar(100)
+  processedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+model company_bank_accounts {
+  id              Int             @id @default(autoincrement())
+  profileId       Int
+  alias           String?         @db.VarChar(100)
+  bankName        String          @db.VarChar(150)
+  accountNumber   String?         @db.VarChar(50)
+  clabe           String?         @db.VarChar(50)
+  beneficiary     String?         @db.VarChar(255)
+  referenceHint   String?         @db.VarChar(255)
+  swiftCode       String?         @db.VarChar(50)
+  isDefault       Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime
+  company_profile company_profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+}
+
+model company_meta {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique @db.VarChar(100)
+  value     String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+}
+
+model company_profile {
+  id                    Int                     @id @default(autoincrement())
+  legalName             String                  @db.VarChar(255)
+  tradeName             String?                 @db.VarChar(255)
+  rfc                   String                  @unique @db.VarChar(20)
+  taxRegime             String?                 @db.VarChar(100)
+  fiscalStreet          String?                 @db.VarChar(255)
+  fiscalNumber          String?                 @db.VarChar(20)
+  fiscalNeighborhood    String?                 @db.VarChar(150)
+  fiscalCity            String?                 @db.VarChar(100)
+  fiscalState           String?                 @db.VarChar(100)
+  fiscalPostalCode      String?                 @db.VarChar(10)
+  supportEmail          String?                 @db.VarChar(255)
+  billingEmail          String?                 @db.VarChar(255)
+  supportPhone          String?                 @db.VarChar(30)
+  websiteUrl            String?                 @db.VarChar(255)
+  csdCertPath           String?                 @db.VarChar(500)
+  csdKeyPath            String?                 @db.VarChar(500)
+  csdPassword           String?                 @db.VarChar(255)
+  csdSeries             String?                 @db.VarChar(50)
+  csdValidFrom          DateTime?
+  csdValidTo            DateTime?
+  notes                 String?                 @db.Text
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime
+  company_bank_accounts company_bank_accounts[]
+}
+
+model contact_messages {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(150)
+  email     String   @db.VarChar(255)
+  subject   String   @db.VarChar(300)
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  ipAddress String?  @db.VarChar(45)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([isRead])
+}
+
+model coupon_categories {
+  couponId           Int
+  categoryId         Int
+  product_categories product_categories @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  coupons            coupons            @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@id([couponId, categoryId])
+  @@index([categoryId])
+}
+
+model coupon_products {
+  couponId  Int
+  productId Int
+  coupons   coupons  @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  products  products @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([couponId, productId])
+  @@index([productId])
+}
+
+model coupon_redemptions {
+  id         Int      @id @default(autoincrement())
+  couponId   Int
+  userId     Int
+  orderId    Int?
+  redeemedAt DateTime @default(now())
+  coupons    coupons  @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  orders     Order?   @relation(fields: [orderId], references: [id])
+  users      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, userId])
+  @@index([orderId])
+  @@index([userId])
+}
+
+model coupon_users {
+  couponId Int
+  userId   Int
+  coupons  coupons @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  users    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([couponId, userId])
+  @@index([userId])
+}
+
+model coupons {
+  id                 Int                  @id @default(autoincrement())
+  code               String               @unique @db.VarChar(50)
+  description        String               @db.Text
+  discountType       coupons_discountType
+  discountValue      Decimal              @db.Decimal(10, 2)
+  validFrom          DateTime
+  validUntil         DateTime?
+  status             coupons_status       @default(ACTIVE)
+  scope              coupons_scope        @default(GLOBAL)
+  maxUses            Int?
+  usesCount          Int                  @default(0)
+  isDeleted          Boolean              @default(false)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime
+  carts              carts[]
+  coupon_categories  coupon_categories[]
+  coupon_products    coupon_products[]
+  coupon_redemptions coupon_redemptions[]
+  coupon_users       coupon_users[]
+  orders             Order[]
+
+  @@index([scope, status])
+}
+
+model hero_banners {
+  id          Int      @id @default(autoincrement())
+  desktopSrc  String   @db.VarChar(500)
+  mobileSrc   String   @db.VarChar(500)
+  alt         String   @db.VarChar(255)
+  title       String   @db.VarChar(255)
+  description String   @db.VarChar(700)
+  buttonText  String   @db.VarChar(120)
+  buttonLink  String   @db.VarChar(500)
+  dataAiHint  String?  @db.VarChar(255)
+  showOnHome  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+
+  @@index([showOnHome, updatedAt])
+}
+
+model loyalty_history {
+  id              Int                             @id @default(autoincrement())
+  userId          Int
+  orderId         Int?
+  points          Int
+  transactionType loyalty_history_transactionType
+  notes           String?                         @db.Text
+  createdAt       DateTime                        @default(now())
+  orders          Order?                          @relation(fields: [orderId], references: [id])
+  users           User                            @relation(fields: [userId], references: [id])
+
+  @@index([orderId])
+  @@index([userId])
+}
+
+model loyalty_program_config {
+  id                      Int      @id
+  pointsRequiredForCoupon Int      @default(3000)
+  couponValue             Decimal  @default(200.00) @db.Decimal(10, 2)
+  pointsToCurrencyRatio   Decimal  @default(1.0000) @db.Decimal(10, 4)
+  couponValidityDays      Int      @default(30)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime
+}
+
+model newsletter_subscribers {
+  id          Int       @id @default(autoincrement())
+  email       String    @unique
+  isActive    Boolean   @default(true)
+  source      String?
+  ipAddress   String?
+  userAgent   String?
+  isConfirmed Boolean   @default(false)
+  token       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  unsubAt     DateTime?
+}
+
+model occasions {
+  id                Int                 @id @default(autoincrement())
+  name              String              @db.VarChar(100)
+  slug              String              @unique @db.VarChar(120)
+  description       String?             @db.Text
+  imageUrl          String?             @db.VarChar(500)
+  isShownOnHome     Boolean             @default(false)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime
+  product_occasions product_occasions[]
+}
+
+model order_cancellation_logs {
+  id                 Int      @id @default(autoincrement())
+  orderId            Int
+  refundId           Int?     @unique
+  cancelledBy        String   @db.VarChar(10)
+  adminId            Int?
+  refundPercentage   Decimal? @db.Decimal(5, 2)
+  refundAmount       Decimal? @db.Decimal(10, 2)
+  cancellationReason String?  @db.VarChar(100)
+  customReason       String?  @db.Text
+  createdAt          DateTime @default(now())
+  users              User?    @relation(fields: [adminId], references: [id])
+  orders             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  refunds            refunds? @relation(fields: [refundId], references: [id])
+
+  @@index([adminId], map: "order_cancellation_logs_adminId_fkey")
+  @@index([orderId])
+}
+
+model order_cancellations {
+  id               Int      @id @default(autoincrement())
+  orderId          Int
+  refundPercentage Decimal  @db.Decimal(5, 2)
+  refundAmount     Decimal  @db.Decimal(10, 2)
+  reason           String?  @db.VarChar(255)
+  cancelledBy      String   @db.VarChar(50)
+  createdAt        DateTime @default(now())
+  orders           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model payment_transactions {
+  id                Int                         @id @default(autoincrement())
+  orderId           Int
+  externalPaymentId String                      @unique
+  gateway           String                      @default("stripe") @db.VarChar(50)
+  amount            Decimal                     @db.Decimal(10, 2)
+  status            payment_transactions_status @default(PENDING)
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime
+  orders            Order                       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  refunds           refunds?
+
+  @@index([orderId])
+  @@index([orderId, updatedAt])
+}
+
+model peak_dates {
+  id                 Int      @id @default(autoincrement())
+  name               String   @db.VarChar(100)
+  peakDate           DateTime @db.Date
+  isCouponRestricted Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime
+}
+
+model product_categories {
+  id                       Int                  @id @default(autoincrement())
+  name                     String               @db.VarChar(100)
+  slug                     String               @unique @db.VarChar(120)
+  prefix                   String               @db.VarChar(10)
+  description              String?              @db.Text
+  imageUrl                 String?              @db.VarChar(500)
+  parentId                 Int?
+  isShownOnHome            Boolean              @default(false)
+  isDeleted                Boolean              @default(false)
+  deletedAt                DateTime?
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime
+  coupon_categories        coupon_categories[]
+  product_categories       product_categories?  @relation("product_categoriesToproduct_categories", fields: [parentId], references: [id])
+  other_product_categories product_categories[] @relation("product_categoriesToproduct_categories")
+  products                 products[]
+
+  @@index([parentId], map: "product_categories_parentId_fkey")
+}
+
+model product_images {
+  id               Int               @id @default(autoincrement())
+  productId        Int?
+  variantId        Int?
+  src              String            @db.VarChar(500)
+  alt              String            @db.VarChar(200)
+  isPrimary        Boolean           @default(false)
+  sortOrder        Int               @default(0)
+  createdAt        DateTime          @default(now())
+  products         products?         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product_variants product_variants? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([productId], map: "product_images_productId_fkey")
+  @@index([variantId], map: "product_images_variantId_fkey")
+}
+
+model product_occasions {
+  productId  Int
+  occasionId Int
+  occasions  occasions @relation(fields: [occasionId], references: [id], onDelete: Cascade)
+  products   products  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([productId, occasionId])
+  @@index([occasionId], map: "product_occasions_occasionId_fkey")
+}
+
+model product_specifications {
+  id               Int               @id @default(autoincrement())
+  productId        Int?
+  variantId        Int?
+  key              String            @db.VarChar(100)
+  value            String            @db.VarChar(500)
+  sortOrder        Int               @default(0)
+  products         products?         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product_variants product_variants? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([productId], map: "product_specifications_productId_fkey")
+  @@index([variantId], map: "product_specifications_variantId_fkey")
+}
+
+model product_tags {
+  productId Int
+  tagId     Int
+  products  products @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tags      tags     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([productId, tagId])
+  @@index([tagId], map: "product_tags_tagId_fkey")
+}
+
+model product_variants {
+  id                     Int                      @id @default(autoincrement())
+  productId              Int
+  name                   String                   @db.VarChar(100)
+  productName            String                   @db.VarChar(120)
+  code                   String?                  @unique @db.VarChar(50)
+  price                  Decimal                  @db.Decimal(10, 2)
+  salePrice              Decimal?                 @db.Decimal(10, 2)
+  stock                  Int                      @default(0)
+  shortDescription       String?                  @db.VarChar(500)
+  description            String?                  @db.Text
+  isDeleted              Boolean                  @default(false)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  cart_items             cart_items[]
+  order_items            OrderItem[]
+  product_images         product_images[]
+  product_specifications product_specifications[]
+  products               products                 @relation(fields: [productId], references: [id], onDelete: Cascade)
+  wishlist_items         wishlist_items[]
+
+  @@index([productId], map: "product_variants_productId_fkey")
+}
+
+model products {
+  id                     Int                      @id @default(autoincrement())
+  name                   String                   @db.VarChar(255)
+  slug                   String                   @unique @db.VarChar(280)
+  code                   String                   @unique @db.VarChar(50)
+  description            String?                  @db.Text
+  shortDescription       String?                  @db.VarChar(500)
+  price                  Decimal                  @db.Decimal(10, 2)
+  salePrice              Decimal?                 @db.Decimal(10, 2)
+  stock                  Int                      @default(0)
+  hasVariants            Boolean                  @default(false)
+  status                 products_status          @default(DRAFT)
+  care                   String?                  @db.Text
+  mainImage              String?                  @db.VarChar(500)
+  badgeText              String?                  @db.VarChar(40)
+  isAllowedPhoto         Boolean                  @default(false)
+  photoPrice             Decimal?                 @db.Decimal(10, 2)
+  categoryId             Int
+  isDeleted              Boolean                  @default(false)
+  deletedAt              DateTime?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  cart_items             cart_items[]
+  coupon_products        coupon_products[]
+  order_items            OrderItem[]
+  product_images         product_images[]
+  product_occasions      product_occasions[]
+  product_specifications product_specifications[]
+  product_tags           product_tags[]
+  product_variants       product_variants[]
+  product_categories     product_categories       @relation(fields: [categoryId], references: [id])
+  wishlist_items         wishlist_items[]
+
+  @@index([categoryId, status, isDeleted])
+  @@index([createdAt])
+  @@index([status, isDeleted])
+}
+
+model refund_rules {
+  id               Int                      @id @default(autoincrement())
+  orderStatus      refund_rules_orderStatus @unique
+  refundPercentage Decimal                  @db.Decimal(5, 2)
+  createdAt        DateTime                 @default(now())
+}
+
+model refunds {
+  id                      Int                      @id @default(autoincrement())
+  paymentTransactionId    Int                      @unique
+  externalRefundId        String                   @unique
+  amount                  Decimal                  @db.Decimal(10, 2)
+  status                  refunds_status
+  reason                  String?                  @db.VarChar(255)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime
+  order_cancellation_logs order_cancellation_logs?
+  payment_transactions    payment_transactions     @relation(fields: [paymentTransactionId], references: [id])
+}
+
+model shipping_zones {
+  id               Int      @id @default(autoincrement())
+  postalCode       String   @db.VarChar(10)
+  locality         String   @db.VarChar(150)
+  shippingCost     Decimal  @db.Decimal(10, 2)
+  isActive         Boolean  @default(true)
+  settlementType   String?  @db.VarChar(100)
+  municipality     String?  @db.VarChar(150)
+  state            String?  @db.VarChar(100)
+  stateCode        String?  @db.VarChar(5)
+  municipalityCode String?  @db.VarChar(5)
+  postalOfficeCode String?  @db.VarChar(10)
+  zone             String?  @db.VarChar(50)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+
+  @@unique([postalCode, locality])
+}
+
+model tags {
+  id           Int            @id @default(autoincrement())
+  name         String         @unique @db.VarChar(60)
+  product_tags product_tags[]
+}
+
+model testimonials {
+  id             Int                 @id @default(autoincrement())
+  userId         Int
+  orderId        Int                 @unique
+  rating         Int
+  comment        String              @db.Text
+  userName       String
+  userProfilePic String?
+  status         testimonials_status @default(PENDING)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime
+  orders         Order               @relation(fields: [orderId], references: [id])
+  users          User                @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "testimonials_userId_fkey")
+}
+
+model whatsapp_contacts {
+  id         Int      @id @default(autoincrement())
+  phone      String   @unique @db.VarChar(20)
+  name       String   @db.VarChar(150)
+  orderCount Int      @default(0)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+}
+
+model wishlist_items {
+  id               Int               @id @default(autoincrement())
+  userId           Int
+  productId        Int
+  variantId        Int?
+  selectionKey     String            @db.VarChar(80)
+  createdAt        DateTime          @default(now())
+  products         products          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  users            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product_variants product_variants? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, selectionKey])
+  @@index([productId], map: "wishlist_items_productId_fkey")
+  @@index([variantId])
+}
+
+enum refund_rules_orderStatus {
+  CREATED
+  PENDING_PAYMENT
+  PAYMENT_FAILED
+  PAID
+  SCHEDULED
+  FLOWERS_PURCHASED
+  PREPARING
+  READY_FOR_SHIPMENT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  EXPIRED
+}
+
+enum carts_status {
+  ACTIVE
+  CHECKED_OUT
+  ABANDONED
+}
+
+enum coupons_discountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum loyalty_history_transactionType {
+  EARNED
+  REDEEMED
+  ADJUSTED
+  EXPIRED
+}
+
+enum refunds_status {
+  PENDING
+  SUCCEEDED
+  FAILED
+  APPROVED
+  CANCELED
+}
+
+enum payment_transactions_status {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+enum coupons_status {
+  ACTIVE
+  EXPIRED
+  USED
+  PAUSED
+}
+
+enum testimonials_status {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum users_role {
+  CUSTOMER
+  ADMIN
+  DELIVERY
+}
+
+enum coupons_scope {
+  GLOBAL
+  USERS
+  CATEGORIES
+  PRODUCTS
+  SPECIFIC
+}
+
+enum orders_status {
+  CREATED
+  PENDING_PAYMENT
+  PAYMENT_FAILED
+  PAID
+  SCHEDULED
+  FLOWERS_PURCHASED
+  PREPARING
+  READY_FOR_SHIPMENT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  EXPIRED
+}
+
+enum products_status {
+  PUBLISHED
+  HIDDEN
+  DRAFT
+}
+
+enum addresses_addressType {
+  HOME
+  HOTEL
+  RESTAURANT
+  OFFICE
+  HOSPITAL
+  FUNERAL_CHAPEL
+  SCHOOL
+  BANK
+  APARTMENT
+  OTHER
+}
+
+enum order_addresses_addressType {
+  HOME
+  HOTEL
+  RESTAURANT
+  OFFICE
+  HOSPITAL
+  FUNERAL_CHAPEL
+  SCHOOL
+  BANK
+  APARTMENT
+  OTHER
+}
+
+enum orders_paymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
 }
