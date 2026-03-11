@@ -8,78 +8,49 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String
-  role      String   @default("DELIVERY")
-  phone     String?
-  orders    Order[]  @relation("DriverOrders")
+  id       Int     @id @default(autoincrement())
+  email    String  @unique
+  name     String
+  password String
+  role     String  @default("DELIVERY")
+  phone    String?
 
   @@map("users")
 }
 
 model Order {
-  id                         Int       @id @default(autoincrement())
-  orderToken                 String?   @map("order_token")
-  isGuest                    Boolean   @default(false) @map("is_guest")
-  isPickup                   Boolean   @default(false) @map("is_pickup")
-  guestName                  String?   @map("guest_name")
-  guestEmail                 String?   @map("guest_email")
-  guestPhone                 String?   @map("guest_phone")
-  sessionId                  String?   @map("session_id")
-  couponCodeSnap             String?   @map("coupon_code_snap")
-  paymentStatus              String    @default("PENDING") @map("payment_status")
-  subtotal                   Decimal   @default(0.00)
-  couponDiscount             Decimal   @default(0.00) @map("coupon_discount")
-  shippingCost               Decimal   @default(0.00) @map("shipping_cost")
-  total                      Decimal   @default(0.00)
-  status                     String    @default("READY_FOR_SHIPMENT")
-  deliveryDate               DateTime  @map("delivery_date")
-  flowerPurchaseDate         DateTime? @map("flower_purchase_date")
-  deliveryTimeSlot           String    @map("delivery_time_slot")
-  dedication                 String?   @db.Text
-  isAnonymous                Boolean   @default(false) @map("is_anonymous")
-  signature                  String?   @db.Text
+  id                        Int       @id @default(autoincrement())
+  orderToken                String?
+  isGuest                   Boolean   @default(true)
+  isPickup                  Boolean   @default(false)
+  guestName                 String?
+  guestEmail                String?
+  guestPhone                String?
+  sessionId                 String?
+  couponCodeSnap            String?
+  paymentStatus             String    @default("PENDING")
+  subtotal                  Decimal?
+  couponDiscount            Decimal?
+  shippingCost              Decimal?
+  total                     Decimal?
+  deliveryDate              DateTime?
+  flowerPurchaseDate        DateTime?
+  deliveryTimeSlot          String?
+  dedication                String?   @db.Text
+  isAnonymous               Boolean   @default(false)
+  signature                 String?   @db.Text // Campo existente que no debemos usar
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+  status                    String    @default("READY_FOR_SHIPMENT")
   
-  // Campos específicos para el comprobante de entrega
-  proofOfDeliverySignature   String?   @map("proof_of_delivery_signature") @db.Text
-  proofOfDeliveryReceiver    String?   @map("proof_of_delivery_receiver")
-  deliveryNotes              String?   @map("delivery_notes") @db.Text
-  deliveredAt                DateTime? @map("delivered_at")
-
-  createdAt                  DateTime  @default(now()) @map("created_at")
-  updatedAt                  DateTime  @updatedAt @map("updated_at")
-
-  userId                     Int?      @map("user_id")
-  user                       User?     @relation(fields: [userId], references: [id])
-  deliveryDriverId           Int?      @map("delivery_driver_id")
-  deliveryDriver             User?     @relation("DriverOrders", fields: [deliveryDriverId], references: [id])
+  // Nuevos campos para el comprobante de entrega
+  proofOfDeliverySignature  String?   @db.LongText
+  proofOfDeliveryReceiver   String?
+  deliveryNotes             String?   @db.Text
+  deliveredAt               DateTime?
   
-  items                      OrderItem[]
-  orderAddress               OrderAddress?
+  // Relaciones (basadas en logs de error)
+  deliveryDriverId          Int?
 
   @@map("orders")
-}
-
-model OrderItem {
-  id              Int     @id @default(autoincrement())
-  orderId         Int     @map("order_id")
-  order           Order   @relation(fields: [orderId], references: [id])
-  productNameSnap String  @map("product_name_snap")
-  variantNameSnap String? @map("variant_name_snap")
-  quantity        Int
-  imageSnap       String? @map("image_snap") @db.Text
-
-  @@map("order_items")
-}
-
-model OrderAddress {
-  id               Int     @id @default(autoincrement())
-  orderId          Int     @unique @map("order_id")
-  order            Order   @relation(fields: [orderId], references: [id])
-  recipientName    String  @map("recipient_name")
-  recipientPhone   String? @map("recipient_phone")
-  formattedAddress String  @map("formatted_address") @db.Text
-
-  @@map("order_addresses")
 }

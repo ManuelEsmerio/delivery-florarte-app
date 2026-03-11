@@ -42,7 +42,8 @@ export async function completeDelivery(
 ) {
   let finalSignatureUrl = null;
 
-  // 1. Subir a Cloudinary ANTES de guardar en DB
+  // 1. Si hay firma, subirla a Cloudinary
+  // El cliente envía Base64, el servidor lo sube y obtiene la URL
   if (signatureBase64 && signatureBase64.startsWith('data:image')) {
     try {
       const uploadResult = await cloudinary.uploader.upload(signatureBase64, {
@@ -51,26 +52,26 @@ export async function completeDelivery(
         public_id: `signature_${Date.now()}`
       });
       finalSignatureUrl = uploadResult.secure_url;
-      console.log(`DEBUG [Cloudinary]: Firma subida correctamente: ${finalSignatureUrl}`);
+      console.log(`DEBUG [Cloudinary]: URL generada: ${finalSignatureUrl}`);
     } catch (error) {
       console.error('ERROR [Cloudinary]: No se pudo subir la firma:', error);
     }
   }
 
-  // 2. Guardar en la base de datos solo la URL y los textos
+  // 2. Guardar SOLO la URL y los textos en la base de datos
   try {
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
       data: {
         status: 'DELIVERED',
         deliveredAt: new Date(),
-        proofOfDeliverySignature: finalSignatureUrl,
+        proofOfDeliverySignature: finalSignatureUrl, // Solo guardamos la URL de Cloudinary
         proofOfDeliveryReceiver: receiverName,
         deliveryNotes: observations || null
       }
     });
 
-    console.log(`DEBUG [Prisma]: Orden ${orderId} actualizada correctamente.`);
+    console.log(`DEBUG [Prisma]: Orden ${orderId} actualizada con éxito.`);
     
     revalidatePath('/dashboard');
     revalidatePath(`/orders/${orderId}`);
