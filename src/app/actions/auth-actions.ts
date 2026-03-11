@@ -19,15 +19,11 @@ export type DriverSession = {
   email: string;
 };
 
-// Generamos la clave de firma de forma robusta
 const getJwtSecret = () => {
   const secret = process.env.JWT_SECRET || 'fallback_secret_key_drivemate_2024_secure_min_32_chars';
   return new TextEncoder().encode(secret);
 };
 
-/**
- * Firma un JWT con los datos del repartidor.
- */
 async function encrypt(payload: DriverSession) {
   return await new jose.SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
@@ -36,9 +32,6 @@ async function encrypt(payload: DriverSession) {
     .sign(getJwtSecret());
 }
 
-/**
- * Verifica y decodifica el JWT.
- */
 async function decrypt(token: string): Promise<DriverSession | null> {
   try {
     const { payload } = await jose.jwtVerify(token, getJwtSecret(), {
@@ -46,27 +39,25 @@ async function decrypt(token: string): Promise<DriverSession | null> {
     });
     return payload as DriverSession;
   } catch (error) {
-    console.error('JWT Decryption Error:', error);
+    console.error('DEBUG: JWT Decryption Error:', error);
     return null;
   }
 }
 
-/**
- * Obtiene la sesión actual del repartidor verificando el JWT.
- */
 export async function getDriverSession(): Promise<DriverSession | null> {
+  // En Next.js 15, cookies() ES ASÍNCRONO
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get('driver_session')?.value;
   
   if (!sessionToken) {
-    console.log('DEBUG: No session token found in cookies');
+    console.log('DEBUG: No session token found in cookies. Available cookies:', cookieStore.getAll().map(c => c.name));
     return null;
   }
 
   const session = await decrypt(sessionToken);
   
   if (!session) {
-    console.log('DEBUG: Session decryption failed');
+    console.log('DEBUG: Session decryption failed for token');
     return null;
   }
 
@@ -78,9 +69,6 @@ export async function getDriverSession(): Promise<DriverSession | null> {
   return session;
 }
 
-/**
- * Acción de servidor para el inicio de sesión.
- */
 export async function loginAction(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
@@ -122,20 +110,19 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
     const cookieStore = await cookies();
     cookieStore.set('driver_session', successToken, { 
       httpOnly: true, 
-      secure: true, 
+      secure: true, // Forzado a true para compatibilidad con Cloud Workstations (HTTPS)
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 1 semana
+      maxAge: 60 * 60 * 24 * 7,
       path: '/'
     });
 
-    console.log('DEBUG: Login successful for', email);
+    console.log('DEBUG: Login successful, cookie set for', email);
 
   } catch (error) {
     console.error('CRITICAL LOGIN ERROR:', error);
     return { error: 'Error interno del servidor.' };
   }
 
-  // IMPORTANTE: El redirect debe estar FUERA del bloque try/catch en Next.js
   if (successToken) {
     redirect('/splash');
   }
@@ -143,9 +130,6 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
   return null;
 }
 
-/**
- * Cierra la sesión del repartidor.
- */
 export async function logoutAction() {
   const cookieStore = await cookies();
   cookieStore.delete('driver_session');

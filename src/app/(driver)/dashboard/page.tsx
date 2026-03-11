@@ -11,17 +11,16 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-// Forzamos comportamiento dinámico absoluto para evitar caches de sesión inválidos
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function DashboardPage() {
-  // En Next.js 15, llamar a cookies() dentro de la página asegura que sea dinámica
+  // En Next.js 15, await cookies() garantiza que la página sea dinámica y lea los headers frescos
   const cookieStore = await cookies();
   const session = await getDriverSession();
-  
+
   if (!session) {
-    console.log('DEBUG: Dashboard unauthorized, redirecting to login');
+    console.log('DEBUG: Dashboard unauthorized, no session found. Request Cookies:', cookieStore.getAll().map(c => c.name));
     redirect('/login');
   }
 

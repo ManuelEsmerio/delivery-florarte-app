@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { getDriverSession } from '@/app/actions/auth-actions';
 import { redirect, notFound } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -28,6 +29,9 @@ interface PageProps {
 
 export default async function OrderDetailPage({ params }: PageProps) {
   const { id } = await params;
+  
+  // Forzamos lectura de cookies para garantizar contexto dinámico
+  await cookies();
   const session = await getDriverSession();
   if (!session) redirect('/login');
 

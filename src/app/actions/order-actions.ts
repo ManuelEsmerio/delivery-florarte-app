@@ -4,11 +4,13 @@
 import { prisma } from '@/lib/prisma';
 import { getDriverSession } from './auth-actions';
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 
 /**
  * Actualiza el estado de una orden.
  */
 export async function updateOrderStatus(orderId: number, status: any) {
+  await cookies(); // Asegura contexto dinámico
   const session = await getDriverSession();
   if (!session) throw new Error('No autorizado');
 
@@ -28,6 +30,7 @@ export async function updateOrderStatus(orderId: number, status: any) {
  * Finaliza la entrega con firma y nombre del receptor.
  */
 export async function completeDelivery(orderId: number, receiverName: string, signatureUrl: string) {
+  await cookies(); // Asegura contexto dinámico
   const session = await getDriverSession();
   if (!session) throw new Error('No autorizado');
 
@@ -37,7 +40,6 @@ export async function completeDelivery(orderId: number, receiverName: string, si
       status: 'DELIVERED',
       deliveredAt: new Date(),
       signature: signatureUrl,
-      // Usamos el campo de notas de entrega para guardar quién recibió si no hay un campo específico
       deliveryNotes: `Entregado a: ${receiverName}`
     }
   });
