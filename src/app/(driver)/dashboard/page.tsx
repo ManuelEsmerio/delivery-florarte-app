@@ -18,6 +18,7 @@ export default async function DashboardPage() {
   const session = await getDriverSession();
   
   if (!session) {
+    console.log('No session found in Dashboard, redirecting to login...');
     redirect('/login');
   }
 

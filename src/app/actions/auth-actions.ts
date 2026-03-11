@@ -30,15 +30,17 @@ export async function getDriverSession(): Promise<DriverSession | null> {
       return null;
     }
 
-    const session = JSON.parse(sessionCookie.value) as DriverSession;
+    // Intentamos decodificar por si el navegador o el proxy la codificó
+    const decodedValue = decodeURIComponent(sessionCookie.value);
+    const session = JSON.parse(decodedValue) as DriverSession;
     
-    // Verificación adicional básica
     if (!session.id || session.role !== 'DELIVERY') {
       return null;
     }
 
     return session;
   } catch (error) {
+    console.error('Error al obtener sesión:', error);
     return null;
   }
 }
@@ -53,6 +55,8 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
   if (!email || !password) {
     return { error: 'Por favor, completa todos los campos.' };
   }
+
+  let userToAuth = null;
 
   try {
     const user = await prisma.user.findUnique({
@@ -73,17 +77,19 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
       return { error: 'Acceso denegado. Exclusivo para repartidores.' };
     }
 
-    const cookieStore = await cookies();
-    
-    // Establecemos la cookie antes de redirigir
-    cookieStore.set('driver_session', JSON.stringify({
+    userToAuth = {
       id: user.id,
       name: user.name,
       role: user.role,
       email: user.email
-    }), { 
+    };
+
+    const cookieStore = await cookies();
+    
+    // Configuración robusta para entornos Cloud / HTTPS
+    cookieStore.set('driver_session', JSON.stringify(userToAuth), { 
       httpOnly: true, 
-      secure: process.env.NODE_ENV === 'production',
+      secure: true, // Forzamos true ya que el entorno es HTTPS
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 7 días
       path: '/'
@@ -94,8 +100,12 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
     return { error: 'Error de conexión con el servidor.' };
   }
 
-  // Redirigimos directamente desde el servidor para asegurar que la cookie se procese
-  redirect('/splash');
+  // Redirección fuera del bloque try-catch
+  if (userToAuth) {
+    redirect('/splash');
+  }
+  
+  return null;
 }
 
 /**
