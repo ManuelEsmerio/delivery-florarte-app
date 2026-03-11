@@ -18,6 +18,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { reportFailedDelivery } from '@/app/actions/order-actions';
 import {
@@ -42,6 +43,7 @@ export default function OrderDetailPage() {
   const [isPending, startTransition] = useTransition();
   const [showFailDialog, setShowFailDialog] = useState(false);
   const [failComment, setFailComment] = useState('');
+  const [isCustomFail, setIsCustomFail] = useState(false);
 
   const incidentResponses = [
     "No se encontraba en casa",
@@ -354,10 +356,13 @@ export default function OrderDetailPage() {
                   <button
                     key={resp}
                     type="button"
-                    onClick={() => setFailComment(resp)}
+                    onClick={() => {
+                      setFailComment(resp);
+                      setIsCustomFail(false);
+                    }}
                     className={cn(
                       "w-full p-4 rounded-2xl text-left text-xs font-bold transition-all border-2",
-                      failComment === resp 
+                      failComment === resp && !isCustomFail
                         ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-200" 
                         : "bg-white border-slate-100 text-slate-600 hover:border-red-200"
                     )}
@@ -365,7 +370,33 @@ export default function OrderDetailPage() {
                     {resp}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomFail(true);
+                    if (incidentResponses.includes(failComment)) setFailComment('');
+                  }}
+                  className={cn(
+                    "w-full p-4 rounded-2xl text-left text-xs font-bold transition-all border-2",
+                    isCustomFail
+                      ? "bg-slate-900 border-slate-900 text-white shadow-lg"
+                      : "bg-white border-slate-100 text-slate-400"
+                  )}
+                >
+                  Otro motivo (Escribir detalle)
+                </button>
               </div>
+
+              {isCustomFail && (
+                <div className="animate-in slide-in-from-top-2 duration-300">
+                  <Textarea 
+                    placeholder="Describe detalladamente el motivo..."
+                    className="bg-slate-50 border-none rounded-2xl p-4 text-sm min-h-[100px]"
+                    value={failComment}
+                    onChange={(e) => setFailComment(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
