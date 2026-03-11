@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useTransition } from 'react';
@@ -38,10 +37,16 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'OUT_FOR_DELIVERY' | 'DELIVERED'>('OUT_FOR_DELIVERY');
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
+  const [currentDateStr, setCurrentDateStr] = useState<string>('');
 
   // Estado para la modal de vista rápida
   const [quickViewOrder, setQuickViewOrder] = useState<any>(null);
   const [hoverTimer, setHoverTimer] = useState<NodeJS.Timeout | null>(null);
+
+  // Solución para error de hidratación de fecha
+  useEffect(() => {
+    setCurrentDateStr(format(new Date(), "EEEE, d 'de' MMMM", { locale: es }));
+  }, []);
 
   useEffect(() => {
     if (driverId) {
@@ -59,6 +64,9 @@ export default function DashboardPage() {
   };
 
   const handleMouseEnter = (order: any) => {
+    // Si ya hay un timer, no crear otro
+    if (hoverTimer) return;
+    
     const timer = setTimeout(() => {
       setQuickViewOrder(order);
     }, 3000);
@@ -95,7 +103,7 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Mis Entregas</h1>
             <p className="text-[10px] text-primary font-black mt-1 uppercase tracking-widest flex items-center gap-2">
               <Clock className="size-3" />
-              {format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}
+              {currentDateStr || "Cargando fecha..."}
             </p>
           </div>
           <div className="size-11 bg-primary/10 rounded-2xl flex items-center justify-center text-primary font-black border-2 border-primary/20 shadow-inner">
