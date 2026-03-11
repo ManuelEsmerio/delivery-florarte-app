@@ -33,13 +33,13 @@ export async function updateOrderStatus(orderId: number, status: string) {
  */
 export async function completeDelivery(
   orderId: number, 
-  receiverName?: string, 
+  receiverName: string, 
   signatureBase64?: string,
   observations?: string
 ) {
   let finalSignatureUrl = null;
 
-  // Subir firma a Cloudinary si existe
+  // Subir firma a Cloudinary si existe y es un base64 válido
   if (signatureBase64 && signatureBase64.startsWith('data:image')) {
     try {
       const uploadResult = await cloudinary.uploader.upload(signatureBase64, {
@@ -51,18 +51,17 @@ export async function completeDelivery(
       console.log(`DEBUG [Cloudinary]: Firma subida con éxito: ${finalSignatureUrl}`);
     } catch (error) {
       console.error('ERROR [Cloudinary]: Fallo al subir la firma:', error);
-      // En caso de error de subida, podríamos optar por guardar el base64 o dejarlo nulo
     }
   }
 
+  // Actualización en la base de datos usando los campos correctos del esquema
   await prisma.order.update({
     where: { id: orderId },
     data: {
       status: 'DELIVERED',
       deliveredAt: new Date(),
       proofOfDeliverySignature: finalSignatureUrl,
-      proofOfDeliveryReceiver: receiverName || null,
-      // Se utiliza deliveryNotes para guardar las observaciones finales del repartidor
+      proofOfDeliveryReceiver: receiverName,
       deliveryNotes: observations || null
     }
   });
