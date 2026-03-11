@@ -15,70 +15,81 @@ enum PaymentStatus {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String
-  role      String   @default("DELIVERY")
-  phone     String?
-  orders    Order[]  @relation("UserOrders")
-  deliveries Order[] @relation("DriverDeliveries")
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
+  name          String
+  password      String
+  role          String   @default("CUSTOMER")
+  phone         String?
+  orders        Order[]  @relation("UserOrders")
+  deliveries    Order[]  @relation("DriverDeliveries")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Order {
-  id                   Int             @id @default(autoincrement())
-  orderToken           String?
-  isGuest              Boolean         @default(false)
-  isPickup             Boolean         @default(false)
-  guestName            String?
-  guestEmail           String?
-  guestPhone           String?
-  sessionId            String?
-  couponCodeSnap       String?
-  paymentStatus        PaymentStatus   @default(PENDING)
-  subtotal             Decimal?        @db.Decimal(10, 2)
-  couponDiscount       Decimal?        @db.Decimal(10, 2)
-  shippingCost         Decimal?        @db.Decimal(10, 2)
-  total                Decimal?        @db.Decimal(10, 2)
-  status               String          @default("READY_FOR_SHIPMENT")
-  deliveryDate         DateTime?
-  flowerPurchaseDate   DateTime?
-  deliveryTimeSlot     String
-  dedication           String?
-  isAnonymous          Boolean         @default(false)
-  signature            String?         // Campo existente usado para otro propósito
-  deliveryNotes        String?         // Usado para observaciones finales
-  deliveredAt          DateTime?
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
+  id                        Int           @id @default(autoincrement())
+  orderToken                String?
+  isGuest                   Boolean       @default(false)
+  isPickup                  Boolean       @default(false)
+  guestName                 String?
+  guestEmail                String?
+  guestPhone                String?
+  sessionId                 String?
+  couponCodeSnap            String?
+  paymentStatus             PaymentStatus @default(PENDING)
+  subtotal                  Decimal       @db.Decimal(10, 2)
+  couponDiscount            Decimal       @default(0) @db.Decimal(10, 2)
+  shippingCost              Decimal       @default(0) @db.Decimal(10, 2)
+  total                     Decimal       @db.Decimal(10, 2)
+  deliveryDate              DateTime
+  flowerPurchaseDate        DateTime?
+  deliveryTimeSlot          String
+  dedication                String?       @db.Text
+  isAnonymous               Boolean       @default(false)
+  signature                 String?       @db.Text
+  status                    String        @default("READY_FOR_SHIPMENT")
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  deliveredAt               DateTime?
+  deliveryNotes             String?       @db.Text
+  
+  // NUEVOS CAMPOS DE LOGÍSTICA
+  proofOfDeliverySignature  String?       @db.Text
+  proofOfDeliveryReceiver   String?
+  
+  // Relaciones básicas
+  userId                    Int?
+  user                      User?         @relation("UserOrders", fields: [userId], references: [id])
+  deliveryDriverId          Int?
+  deliveryDriver            User?         @relation("DriverDeliveries", fields: [deliveryDriverId], references: [id])
+  
+  items                     OrderItem[]
+  orderAddress              OrderAddress?
 
-  // NUEVOS CAMPOS PARA LOGÍSTICA DE ENTREGA (SOLICITADOS)
-  proofOfDeliverySignature String?       @db.LongText
-  proofOfDeliveryReceiver  String?
-
-  // Relaciones
-  userId               Int?
-  user                 User?           @relation("UserOrders", fields: [userId], references: [id])
-  deliveryDriverId     Int?
-  deliveryDriver       User?           @relation("DriverDeliveries", fields: [deliveryDriverId], references: [id])
-  orderAddress         OrderAddress?
-  items                OrderItem[]
-}
-
-model OrderAddress {
-  id               Int     @id @default(autoincrement())
-  recipientName    String
-  recipientPhone   String?
-  formattedAddress String
-  orderId          Int     @unique
-  order            Order   @relation(fields: [orderId], references: [id])
+  // Nota: Si tienes otras tablas (Coupon, Testimonial, etc.), 
+  // lo ideal es correr `npx prisma db pull` antes para no perderlas.
 }
 
 model OrderItem {
   id              Int     @id @default(autoincrement())
-  productNameSnap String
-  variantNameSnap String?
-  imageSnap       String?
-  quantity        Int
   orderId         Int
   order           Order   @relation(fields: [orderId], references: [id])
+  productId       Int
+  productNameSnap String
+  variantNameSnap String?
+  quantity        Int
+  priceSnap       Decimal @db.Decimal(10, 2)
+  imageSnap       String?
+}
+
+model OrderAddress {
+  id                Int     @id @default(autoincrement())
+  orderId           Int     @unique
+  order             Order   @relation(fields: [orderId], references: [id])
+  recipientName     String
+  recipientPhone    String?
+  formattedAddress  String  @db.Text
+  lat               Float?
+  lng               Float?
 }
