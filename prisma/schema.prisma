@@ -7,37 +7,66 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Order {
+  id                        Int       @id @default(autoincrement())
+  orderToken                String?
+  isGuest                   Boolean   @default(false)
+  isPickup                  Boolean   @default(false)
+  guestName                 String?
+  guestEmail                String?
+  guestPhone                String?
+  status                    String    @default("READY_FOR_SHIPMENT")
+  deliveryTimeSlot          String?
+  deliveryNotes             String?   @db.Text
+  deliveredAt               DateTime?
+  dedication                String?   @db.Text
+  
+  // Nuevos campos para evidencia de entrega
+  proofOfDeliverySignature  String?   @db.LongText
+  proofOfDeliveryReceiver   String?
+  
+  // Relaciones necesarias
+  userId                    Int?
+  user                      User?     @relation(fields: [userId], references: [id])
+  deliveryDriverId          Int?
+  deliveryDriver            User?     @relation("DriverRelation", fields: [deliveryDriverId], references: [id])
+  items                     OrderItem[]
+  orderAddress              OrderAddress?
+
+  @@map("orders")
+}
+
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String
-  password  String
-  role      String   @default("DELIVERY")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  orders    Order[]  @relation("DriverOrders")
+  id              Int      @id @default(autoincrement())
+  email           String   @unique
+  name            String
+  role            String   @default("USER")
+  phone           String?
+  orders          Order[]
+  deliveries      Order[]  @relation("DriverRelation")
 
   @@map("users")
 }
 
-model Order {
-  id                         Int            @id @default(autoincrement())
-  orderToken                 String?
-  status                     String         @default("READY_FOR_SHIPMENT")
-  isGuest                    Boolean        @default(false)
-  guestName                  String?
-  guestEmail                 String?
-  guestPhone                 String?
-  deliveryTimeSlot           String
-  deliveryNotes              String?        @db.Text
-  proofOfDeliverySignature   String?        @db.LongText
-  proofOfDeliveryReceiver    String?
-  deliveredAt                DateTime?
-  deliveryDriverId           Int?
-  deliveryDriver             User?          @relation("DriverOrders", fields: [deliveryDriverId], references: [id])
-  createdAt                  DateTime       @default(now())
-  updatedAt                  DateTime       @updatedAt
+model OrderItem {
+  id              Int      @id @default(autoincrement())
+  orderId         Int
+  order           Order    @relation(fields: [orderId], references: [id])
+  productNameSnap String
+  variantNameSnap String?
+  quantity        Int
+  imageSnap       String?
 
-  // Mapeo a la tabla física en la base de datos
-  @@map("orders")
+  @@map("order_items")
+}
+
+model OrderAddress {
+  id                Int      @id @default(autoincrement())
+  orderId           Int      @unique
+  order             Order    @relation(fields: [orderId], references: [id])
+  recipientName     String?
+  recipientPhone    String?
+  formattedAddress  String?
+
+  @@map("order_addresses")
 }

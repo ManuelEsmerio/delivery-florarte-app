@@ -54,13 +54,13 @@ export async function completeDelivery(
       console.log(`DEBUG [Cloudinary]: Imagen subida con éxito: ${finalSignatureUrl}`);
     } catch (error) {
       console.error('ERROR [Cloudinary]: No se pudo subir la firma:', error);
-      // En caso de error, podríamos guardar el base64 temporalmente o dejarlo nulo
-      finalSignatureUrl = signatureBase64; 
+      // Fallback: si falla Cloudinary, no bloqueamos la operación (opcional)
     }
   }
 
   try {
     // Actualización en la base de datos usando los campos correctos del esquema
+    // El modelo 'Order' está mapeado a la tabla 'orders' en schema.prisma
     await prisma.order.update({
       where: { id: orderId },
       data: {
