@@ -18,17 +18,14 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * Obtiene las órdenes por driverId y status.
- * Se eliminó el filtro de deliveryNotes para que el repartidor siga viendo sus incidencias.
  */
 export async function getOrdersByStatus(driverId: number, status: 'OUT_FOR_DELIVERY' | 'DELIVERED') {
   try {
-    const whereClause: any = {
-      deliveryDriverId: driverId,
-      status: status
-    };
-
     const orders = await prisma.order.findMany({
-      where: whereClause,
+      where: {
+        deliveryDriverId: driverId,
+        status: status
+      },
       include: {
         orderAddress: true,
       },
@@ -46,11 +43,11 @@ export async function getOrdersByStatus(driverId: number, status: 'OUT_FOR_DELIV
 
 /**
  * Reporta un intento de entrega fallido.
- * Solo actualiza el campo deliveryNotes para guardar el motivo.
+ * Actualiza deliveryNotes y envía correo.
  */
 export async function reportFailedDelivery(orderId: number, comment: string) {
   try {
-    // 1. Actualizar solo el deliveryNotes en la base de datos
+    // 1. Actualizar el deliveryNotes en la base de datos
     const order = await prisma.order.update({
       where: { id: orderId },
       data: {
@@ -61,7 +58,7 @@ export async function reportFailedDelivery(orderId: number, comment: string) {
       }
     });
 
-    // 2. Intentar enviar correo (sin bloquear el flujo principal)
+    // 2. Intentar enviar correo
     const customerEmail = (order as any).guestEmail || order.user?.email;
     const customerName = (order as any).guestName || order.user?.name || 'Cliente';
 
@@ -108,7 +105,7 @@ export async function reportFailedDelivery(orderId: number, comment: string) {
 }
 
 /**
- * Finaliza la entrega, sube firma a Cloudinary y envía correo con Resend.
+ * Finaliza la entrega, sube firma y envía correo.
  */
 export async function completeDelivery(
   orderId: number, 
@@ -165,7 +162,7 @@ export async function completeDelivery(
           subject: `¡Tu pedido #${updatedOrder.id} ha sido entregado!`,
           html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
-              <div style="background-color: #2252C9; padding: 20px; text-align: center; color: white;">
+              <div style="background-color: #primary; padding: 20px; text-align: center; color: white;">
                 <h2 style="margin: 0;">¡Entrega Confirmada!</h2>
               </div>
               <div style="padding: 20px;">
@@ -175,8 +172,9 @@ export async function completeDelivery(
                   <p style="margin: 5px 0;"><strong>Orden:</strong> #${updatedOrder.id}</p>
                   <p style="margin: 5px 0;"><strong>Recibido por:</strong> ${receiverName}</p>
                   <p style="margin: 5px 0;"><strong>Fecha:</strong> ${new Date().toLocaleString()}</p>
+                  ${observations ? `<p style="margin: 5px 0;"><strong>Nota:</strong> ${observations}</p>` : ''}
                 </div>
-                <h3 style="border-bottom: 2px solid #2252C9; padding-bottom: 5px;">Detalle del Pedido</h3>
+                <h3 style="border-bottom: 2px solid #primary; padding-bottom: 5px;">Detalle del Pedido</h3>
                 <table style="width: 100%; border-collapse: collapse;">${itemsHtml}</table>
                 ${finalSignatureUrl ? `
                   <div style="margin-top: 30px; text-align: center; border-top: 1px dashed #ddd; padding-top: 20px;">
