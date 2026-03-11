@@ -74,6 +74,26 @@ export default async function DashboardPage() {
     }
   };
 
+  /**
+   * Formatea un rango horario como "18-20" a "18:00 PM - 20:00 PM"
+   */
+  const formatTimeSlot = (slot: string) => {
+    if (!slot) return "Sin horario";
+    if (!slot.includes('-')) return slot;
+    
+    try {
+      const parts = slot.split('-');
+      return parts.map(part => {
+        const hour = parseInt(part.trim());
+        if (isNaN(hour)) return part;
+        const period = hour >= 12 ? 'PM' : 'AM';
+        return `${hour}:00 ${period}`;
+      }).join(' - ');
+    } catch (e) {
+      return slot;
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-full animate-in fade-in duration-500 pb-24">
       <header className="pt-10 px-6 pb-2 bg-white/50">
@@ -155,7 +175,9 @@ export default async function DashboardPage() {
                     </div>
                     <div className="flex items-center text-sm text-slate-600">
                       <Clock className="h-4 w-4 mr-2 text-slate-400 shrink-0" />
-                      <span>{order.deliveryTimeSlot || "Sin horario"}</span>
+                      <span className="font-medium tracking-tight">
+                        {formatTimeSlot(order.deliveryTimeSlot)}
+                      </span>
                     </div>
                   </div>
 
