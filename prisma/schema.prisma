@@ -1,3 +1,6 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,54 +14,61 @@ model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   name      String
-  role      String   @default("DELIVERY")
-  orders    Order[]
+  password  String
+  phone     String?
+  role      String   @default("DELIVERY") // "ADMIN", "DELIVERY", "USER"
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
 }
 
 model Order {
-  id               Int           @id @default(autoincrement())
-  status           String        @default("READY_FOR_SHIPMENT")
-  createdAt        DateTime      @default(now())
-  deliveryDriverId Int?
-  user             User?         @relation(fields: [userId], references: [id])
-  userId           Int?
+  id                    Int           @id @default(autoincrement())
+  status                String        @default("READY_FOR_SHIPMENT") // "READY_FOR_SHIPMENT", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"
+  deliveryDriverId      Int?
+  userId                Int?
+  user                  User?         @relation(fields: [userId], references: [id])
+  isGuest               Boolean       @default(false)
+  guestName             String?
+  guestEmail            String?
+  guestPhone            String?
+  deliveryTimeSlot      String?       // e.g., "18-20"
+  deliveryNotes         String?       @db.Text
+  dedication            String?       @db.Text
+  deliveredAt           DateTime?
   
-  // Datos del cliente / Invitado
-  isGuest          Boolean       @default(false)
-  guestName        String?
-  guestEmail       String?
-  guestPhone       String?
+  // Nuevos campos específicos para el comprobante de entrega
+  proofOfDeliverySignature String?     @db.LongText
+  proofOfDeliveryReceiver  String?     
   
-  // Detalles de entrega
-  deliveryTimeSlot String?
-  deliveryNotes    String?
-  deliveredAt      DateTime?
-  dedication       String?
-  
-  // NUEVOS CAMPOS DE EVIDENCIA
-  signature        String?       @db.Text
-  receiverName     String?
-  
-  orderAddress     OrderAddress?
-  items            OrderItem[]
+  // Estos campos se mantienen por si se usan para otros propósitos (como indicó el usuario)
+  signature             String?       @db.LongText
+  receiverName          String?
+
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  orderAddress          OrderAddress?
+  items                 OrderItem[]
 }
 
 model OrderAddress {
-  id               Int      @id @default(autoincrement())
-  orderId          Int      @unique
-  order            Order    @relation(fields: [orderId], references: [id])
-  recipientName    String
-  recipientPhone   String?
-  formattedAddress String
+  id             Int    @id @default(autoincrement())
+  orderId        Int    @unique
+  order          Order  @relation(fields: [orderId], references: [id])
+  recipientName  String
+  recipientPhone String?
+  formattedAddress String @db.Text
+  lat            Float?
+  lng            Float?
 }
 
 model OrderItem {
-  id              Int      @id @default(autoincrement())
+  id              Int    @id @default(autoincrement())
   orderId         Int
-  order           Order    @relation(fields: [orderId], references: [id])
+  order           Order  @relation(fields: [orderId], references: [id])
   productNameSnap String
   variantNameSnap String?
-  imageSnap       String?
-  quantity        Int      @default(1)
+  imageSnap       String? @db.Text
+  quantity        Int    @default(1)
+  priceSnap       Decimal @db.Decimal(10, 2)
 }

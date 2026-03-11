@@ -124,7 +124,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Recibido por</p>
-                  <p className="font-bold text-sm text-slate-800">{order.receiverName || "No especificado"}</p>
+                  <p className="font-bold text-sm text-slate-800">{order.proofOfDeliveryReceiver || "No especificado"}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Fecha y Hora</p>
@@ -133,11 +133,11 @@ export default async function OrderDetailPage({ params }: PageProps) {
                   </p>
                 </div>
               </div>
-              {order.signature && (
+              {order.proofOfDeliverySignature && (
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Firma Digital</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Firma de Entrega</p>
                   <div className="border border-slate-100 rounded-xl overflow-hidden bg-slate-50 h-32 relative">
-                    <img src={order.signature} alt="Firma del receptor" className="w-full h-full object-contain mix-blend-multiply" />
+                    <img src={order.proofOfDeliverySignature} alt="Firma de entrega" className="w-full h-full object-contain mix-blend-multiply" />
                   </div>
                 </div>
               )}

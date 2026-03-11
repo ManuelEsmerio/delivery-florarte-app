@@ -20,8 +20,7 @@ export async function updateOrderStatus(orderId: number, status: string) {
 }
 
 /**
- * Finaliza la entrega guardando la firma y el nombre del receptor.
- * Estos campos son opcionales/nullable según el requerimiento.
+ * Finaliza la entrega guardando la firma y el nombre del receptor en campos específicos.
  */
 export async function completeDelivery(
   orderId: number, 
@@ -33,8 +32,9 @@ export async function completeDelivery(
     data: {
       status: 'DELIVERED',
       deliveredAt: new Date(),
-      signature: signatureUrl || null,
-      receiverName: receiverName || null
+      // Usamos los campos específicos para comprobante de entrega solicitado
+      proofOfDeliverySignature: signatureUrl || null,
+      proofOfDeliveryReceiver: receiverName || null
     }
   });
 
