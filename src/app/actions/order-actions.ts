@@ -64,6 +64,7 @@ export async function updateOrderStatus(orderId: number, status: any) {
  */
 export async function reportFailedDelivery(orderId: number, comment: string) {
   try {
+    // 1. Actualizar base de datos primero
     const order = await prisma.order.update({
       where: { id: orderId },
       data: {
@@ -75,44 +76,49 @@ export async function reportFailedDelivery(orderId: number, comment: string) {
       }
     });
 
-    const customerEmail = (order as any).isGuest ? (order as any).guestEmail : order.user?.email;
-    const customerName = (order as any).isGuest ? ((order as any).guestName || 'Cliente') : (order.user?.name || 'Cliente');
+    // 2. Intentar enviar correo (sin bloquear si falla)
+    const customerEmail = (order as any).guestEmail || order.user?.email;
+    const customerName = (order as any).guestName || order.user?.name || 'Cliente';
 
     if (customerEmail && process.env.RESEND_API_KEY) {
-      await resend.emails.send({
-        from: 'DriveMate <notificaciones@tu-dominio.com>',
-        to: customerEmail,
-        subject: `Intento de entrega fallido - Pedido #${order.id}`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; padding: 20px;">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <h2 style="color: #d93025; margin: 0;">Intento de Entrega Fallido</h2>
-              <p style="color: #5f6368;">Pedido #${order.id}</p>
-            </div>
-            <p>Hola <strong>${customerName}</strong>,</p>
-            <p>Hemos intentado entregar tu pedido hoy a las ${new Date().toLocaleTimeString()}.</p>
-            <div style="background: #fdf2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d93025;">
-              <p style="margin: 0; font-weight: bold; color: #d93025;">Nota del repartidor:</p>
-              <p style="margin: 5px 0 0 0; font-style: italic; color: #3c4043;">"${comment}"</p>
-            </div>
-            <div style="background: #fff8e1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f9ab00;">
-              <p style="margin: 0; font-size: 14px; color: #3c4043;">
-                <strong>Aviso importante:</strong> El repartidor tuvo 10 min llamando a la puerta pero no recibió respuesta y tu producto será regresado a la tienda.
+      try {
+        await resend.emails.send({
+          from: 'DriveMate <notificaciones@reparto.com>',
+          to: customerEmail,
+          subject: `Intento de entrega fallido - Pedido #${order.id}`,
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; padding: 20px;">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <h2 style="color: #d93025; margin: 0;">Intento de Entrega Fallido</h2>
+                <p style="color: #5f6368;">Pedido #${order.id}</p>
+              </div>
+              <p>Hola <strong>${customerName}</strong>,</p>
+              <p>Hemos intentado entregar tu pedido hoy a las ${new Date().toLocaleTimeString()}.</p>
+              <div style="background: #fdf2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d93025;">
+                <p style="margin: 0; font-weight: bold; color: #d93025;">Nota del repartidor:</p>
+                <p style="margin: 5px 0 0 0; font-style: italic; color: #3c4043;">"${comment}"</p>
+              </div>
+              <div style="background: #fff8e1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f9ab00;">
+                <p style="margin: 0; font-size: 14px; color: #3c4043;">
+                  <strong>Aviso importante:</strong> El repartidor tuvo 10 min llamando a la puerta pero no recibió respuesta y tu producto será regresado a la tienda.
+                </p>
+              </div>
+              <p style="font-size: 12px; color: #999; margin-top: 30px; text-align: center; border-top: 1px solid #eee; pt: 20px;">
+                Si tienes dudas, por favor contacta con nuestro equipo de soporte.
               </p>
             </div>
-            <p style="font-size: 12px; color: #999; margin-top: 30px; text-align: center; border-top: 1px solid #eee; pt: 20px;">
-              Si tienes dudas, por favor contacta con nuestro equipo de soporte.
-            </p>
-          </div>
-        `
-      });
+          `
+        });
+      } catch (emailErr) {
+        console.error('Error enviando email de falla (Resend):', emailErr);
+      }
     }
 
     revalidatePath('/dashboard');
     return { success: true };
-  } catch (error) {
-    console.error('Failed Delivery Report Error:', error);
-    return { success: false, error: 'No se pudo reportar la incidencia.' };
+  } catch (error: any) {
+    console.error('Error en reportFailedDelivery:', error);
+    return { success: false, error: error.message || 'No se pudo reportar la incidencia.' };
   }
 }
 
@@ -143,12 +149,12 @@ export async function completeDelivery(
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
       data: {
-        status: 'DELIVERED',
+        status: 'DELIVERED' as any,
         deliveredAt: new Date(),
         proofOfDeliverySignature: finalSignatureUrl,
         proofOfDeliveryReceiver: receiverName,
         deliveryNotes: observations || null
-      } as any,
+      },
       include: {
         items: true,
         user: true,
@@ -156,54 +162,58 @@ export async function completeDelivery(
       }
     });
 
-    const customerEmail = updatedOrder.isGuest ? (updatedOrder as any).guestEmail : updatedOrder.user?.email;
-    const customerName = updatedOrder.isGuest ? ((updatedOrder as any).guestName || 'Cliente') : (updatedOrder.user?.name || 'Cliente');
+    const customerEmail = (updatedOrder as any).guestEmail || updatedOrder.user?.email;
+    const customerName = (updatedOrder as any).guestName || updatedOrder.user?.name || 'Cliente';
 
     if (customerEmail && process.env.RESEND_API_KEY) {
-      const itemsHtml = updatedOrder.items.map(item => `
-        <tr style="border-bottom: 1px solid #eee;">
-          <td style="padding: 10px 0;"><strong>${(item as any).productNameSnap}</strong></td>
-          <td style="padding: 10px 0; text-align: right;">x${item.quantity}</td>
-        </tr>
-      `).join('');
+      try {
+        const itemsHtml = updatedOrder.items.map(item => `
+          <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 10px 0;"><strong>${(item as any).productNameSnap || 'Producto'}</strong></td>
+            <td style="padding: 10px 0; text-align: right;">x${item.quantity}</td>
+          </tr>
+        `).join('');
 
-      await resend.emails.send({
-        from: 'DriveMate <notificaciones@tu-dominio.com>',
-        to: customerEmail,
-        subject: `¡Tu pedido #${updatedOrder.id} ha sido entregado!`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
-            <div style="background-color: #ec5b13; padding: 20px; text-align: center; color: white;">
-              <h2 style="margin: 0;">¡Entrega Confirmada!</h2>
-            </div>
-            <div style="padding: 20px;">
-              <p>Hola <strong>${customerName}</strong>,</p>
-              <p>Tu pedido ha sido entregado exitosamente.</p>
-              <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 5px 0;"><strong>Orden:</strong> #${updatedOrder.id}</p>
-                <p style="margin: 5px 0;"><strong>Recibido por:</strong> ${receiverName}</p>
-                <p style="margin: 5px 0;"><strong>Fecha:</strong> ${new Date().toLocaleString()}</p>
+        await resend.emails.send({
+          from: 'DriveMate <notificaciones@reparto.com>',
+          to: customerEmail,
+          subject: `¡Tu pedido #${updatedOrder.id} ha sido entregado!`,
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+              <div style="background-color: #2252C9; padding: 20px; text-align: center; color: white;">
+                <h2 style="margin: 0;">¡Entrega Confirmada!</h2>
               </div>
-              <h3 style="border-bottom: 2px solid #ec5b13; padding-bottom: 5px;">Detalle del Pedido</h3>
-              <table style="width: 100%; border-collapse: collapse;">${itemsHtml}</table>
-              ${finalSignatureUrl ? `
-                <div style="margin-top: 30px; text-align: center; border-top: 1px dashed #ddd; pt: 20px;">
-                  <p style="font-size: 11px; color: #999; margin-bottom: 10px;">Firma de recepción:</p>
-                  <img src="${finalSignatureUrl}" width="180" style="border: 1px solid #eee; padding: 5px; border-radius: 4px;" />
-                </div>` : ''}
+              <div style="padding: 20px;">
+                <p>Hola <strong>${customerName}</strong>,</p>
+                <p>Tu pedido ha sido entregado exitosamente.</p>
+                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                  <p style="margin: 5px 0;"><strong>Orden:</strong> #${updatedOrder.id}</p>
+                  <p style="margin: 5px 0;"><strong>Recibido por:</strong> ${receiverName}</p>
+                  <p style="margin: 5px 0;"><strong>Fecha:</strong> ${new Date().toLocaleString()}</p>
+                </div>
+                <h3 style="border-bottom: 2px solid #2252C9; padding-bottom: 5px;">Detalle del Pedido</h3>
+                <table style="width: 100%; border-collapse: collapse;">${itemsHtml}</table>
+                ${finalSignatureUrl ? `
+                  <div style="margin-top: 30px; text-align: center; border-top: 1px dashed #ddd; padding-top: 20px;">
+                    <p style="font-size: 11px; color: #999; margin-bottom: 10px;">Firma de recepción:</p>
+                    <img src="${finalSignatureUrl}" width="180" style="border: 1px solid #eee; padding: 5px; border-radius: 4px;" />
+                  </div>` : ''}
+              </div>
+              <div style="background: #f4f4f4; padding: 15px; text-align: center; font-size: 11px; color: #777;">
+                Gracias por confiar en DriveMate.
+              </div>
             </div>
-            <div style="background: #f4f4f4; padding: 15px; text-align: center; font-size: 11px; color: #777;">
-              Gracias por confiar en DriveMate.
-            </div>
-          </div>
-        `
-      });
+          `
+        });
+      } catch (emailErr) {
+        console.error('Error enviando email de éxito (Resend):', emailErr);
+      }
     }
 
     revalidatePath('/dashboard');
     return { success: true };
-  } catch (error) {
-    console.error('Complete Delivery Error:', error);
-    return { success: false, error: 'Error al procesar la entrega.' };
+  } catch (error: any) {
+    console.error('Error en completeDelivery:', error);
+    return { success: false, error: error.message || 'Error al procesar la entrega.' };
   }
 }
