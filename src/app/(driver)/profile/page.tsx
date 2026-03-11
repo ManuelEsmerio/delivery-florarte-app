@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useTransition } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,23 +14,39 @@ import {
   ChevronRight,
   Truck
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { logoutAction } from '@/app/actions/auth-actions';
+import { logoutAction, updatePasswordAction } from '@/app/actions/auth-actions';
 
 export default function ProfilePage() {
-  const router = useRouter();
   const { toast } = useToast();
   const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const handleLogout = async () => {
     await logoutAction();
     toast({ title: "Sesión cerrada", description: "Has salido correctamente del sistema." });
   };
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  const handlePasswordChange = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    toast({ title: "Contraseña actualizada", description: "Tus credenciales han sido cambiadas con éxito." });
-    setShowPasswordForm(false);
+    const formData = new FormData(e.currentTarget);
+    
+    startTransition(async () => {
+      const result = await updatePasswordAction(formData);
+      
+      if (result?.error) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: result.error
+        });
+      } else if (result?.success) {
+        toast({
+          title: "¡Éxito!",
+          description: "Tu contraseña ha sido actualizada correctamente."
+        });
+        setShowPasswordForm(false);
+      }
+    });
   };
 
   return (
@@ -97,14 +112,20 @@ export default function ProfilePage() {
         {showPasswordForm && (
           <form onSubmit={handlePasswordChange} className="bg-white p-6 rounded-2xl shadow-inner border-2 border-slate-50 space-y-4 animate-in slide-in-from-top-4 duration-300 overflow-hidden">
             <div className="space-y-2">
-              <Label htmlFor="old-pass">Contraseña Actual</Label>
-              <Input id="old-pass" type="password" required className="h-11 transition-all focus:scale-[1.01]" />
+              <Label htmlFor="oldPassword">Contraseña Actual</Label>
+              <Input id="oldPassword" name="oldPassword" type="password" required className="h-11 transition-all focus:scale-[1.01]" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="new-pass">Nueva Contraseña</Label>
-              <Input id="new-pass" type="password" required className="h-11 transition-all focus:scale-[1.01]" />
+              <Label htmlFor="newPassword">Nueva Contraseña</Label>
+              <Input id="newPassword" name="newPassword" type="password" required className="h-11 transition-all focus:scale-[1.01]" />
             </div>
-            <Button type="submit" className="w-full bg-primary h-12 shadow-md hover:shadow-lg transition-all font-bold">Actualizar Contraseña</Button>
+            <Button 
+              type="submit" 
+              className="w-full bg-primary h-12 shadow-md hover:shadow-lg transition-all font-bold"
+              disabled={isPending}
+            >
+              {isPending ? "Actualizando..." : "Actualizar Contraseña"}
+            </Button>
           </form>
         )}
 

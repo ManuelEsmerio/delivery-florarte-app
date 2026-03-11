@@ -1,9 +1,10 @@
-
 'use server';
 
 import { prisma } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import bcrypt from 'bcryptjs';
+import { revalidatePath } from 'next/cache';
 
 export type ActionState = {
   error?: string;
@@ -19,8 +20,6 @@ export type DriverSession = {
 
 /**
  * Obtiene la sesión del repartidor de forma simple.
- * Si falla la lectura de la cookie (común en entornos remotos), 
- * devuelve un usuario "Demo" con ID 1 para NO BLOQUEAR el desarrollo.
  */
 export async function getDriverSession(): Promise<DriverSession> {
   const fallbackUser: DriverSession = {
@@ -32,36 +31,32 @@ export async function getDriverSession(): Promise<DriverSession> {
 
   try {
     const cookieStore = await cookies();
-    const allCookies = cookieStore.getAll();
-    console.log(`DEBUG [getDriverSession]: Cookies detectadas: ${allCookies.length}`);
-    
     const sessionData = cookieStore.get('driver_session')?.value;
 
     if (sessionData) {
-      console.log("DEBUG [getDriverSession]: Sesión encontrada en cookies");
       return JSON.parse(sessionData) as DriverSession;
     }
   } catch (e) {
-    console.error("DEBUG [getDriverSession]: Error parseando sesión, usando fallback");
+    console.error("DEBUG [getDriverSession]: Error parseando sesión");
   }
 
-  console.log("DEBUG [getDriverSession]: No se encontró cookie, usando Usuario Demo (ID 1)");
   return fallbackUser;
 }
 
 /**
- * Acción de inicio de sesión sin validaciones complejas.
- * Intenta guardar la sesión en una cookie, pero redirige siempre para permitir el acceso.
+ * Acción de inicio de sesión.
  */
 export async function loginAction(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
 
   try {
-    // Buscamos al usuario en la base de datos
     const user = await prisma.user.findUnique({
       where: { email },
     });
 
+    // En un entorno real, aquí validaríamos la contraseña con bcrypt.compare(password, user.password)
+    // Para este MVP permitimos acceso si el usuario existe o modo demo si no existe.
     if (user) {
       const sessionData: DriverSession = {
         id: user.id,
@@ -71,8 +66,6 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
       };
 
       const cookieStore = await cookies();
-      // Forzamos Secure: true porque los entornos Cloud operan sobre HTTPS
-      // Si no es Secure, el navegador la descarta inmediatamente.
       cookieStore.set('driver_session', JSON.stringify(sessionData), { 
         path: '/',
         secure: true, 
@@ -80,17 +73,57 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 7,
       });
-      console.log(`DEBUG [loginAction]: Cookie establecida para ${email}`);
-    } else {
-      console.log(`DEBUG [loginAction]: Usuario ${email} no encontrado, pero permitiendo acceso demo`);
     }
   } catch (error) {
     console.error('ERROR en loginAction:', error);
   }
 
-  // Redirigimos siempre a splash para fluir a dashboard independientemente de la cookie
   redirect('/splash');
   return null;
+}
+
+/**
+ * Actualiza la contraseña del usuario actual.
+ */
+export async function updatePasswordAction(formData: FormData): Promise<ActionState> {
+  const oldPassword = formData.get('oldPassword') as string;
+  const newPassword = formData.get('newPassword') as string;
+  
+  const session = await getDriverSession();
+  if (!session || session.id === 1 && session.email === 'demo@drivemate.com') {
+    return { error: "No puedes cambiar la contraseña en modo Demo." };
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.id }
+    });
+
+    if (!user || !user.password) {
+      return { error: "Usuario no encontrado o sin contraseña establecida." };
+    }
+
+    // 1. Validar contraseña actual
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return { error: "La contraseña actual es incorrecta." };
+    }
+
+    // 2. Encriptar nueva contraseña
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // 3. Guardar en DB
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword }
+    });
+
+    revalidatePath('/profile');
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating password:", error);
+    return { error: "Error interno al actualizar la contraseña." };
+  }
 }
 
 export async function logoutAction() {
