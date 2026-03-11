@@ -19,7 +19,26 @@ export type DriverSession = {
 };
 
 /**
- * Obtiene la sesión actual del repartidor desde las cookies de forma segura.
+ * Codifica el objeto de sesión para evitar problemas de formato en la cookie.
+ */
+function encodeSession(data: DriverSession): string {
+  return Buffer.from(JSON.stringify(data)).toString('base64');
+}
+
+/**
+ * Decodifica el "token" de la cookie.
+ */
+function decodeSession(token: string): DriverSession | null {
+  try {
+    const decoded = Buffer.from(token, 'base64').toString('utf8');
+    return JSON.parse(decoded) as DriverSession;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Obtiene la sesión actual del repartidor de forma segura.
  */
 export async function getDriverSession(): Promise<DriverSession | null> {
   try {
@@ -30,23 +49,21 @@ export async function getDriverSession(): Promise<DriverSession | null> {
       return null;
     }
 
-    // Intentamos decodificar por si el navegador o el proxy la codificó
-    const decodedValue = decodeURIComponent(sessionCookie.value);
-    const session = JSON.parse(decodedValue) as DriverSession;
+    const session = decodeSession(sessionCookie.value);
     
-    if (!session.id || session.role !== 'DELIVERY') {
+    if (!session || !session.id || session.role !== 'DELIVERY') {
       return null;
     }
 
     return session;
   } catch (error) {
-    console.error('Error al obtener sesión:', error);
+    console.error('Error al recuperar sesión:', error);
     return null;
   }
 }
 
 /**
- * Acción de servidor para manejar el inicio de sesión del repartidor.
+ * Acción de servidor para el inicio de sesión.
  */
 export async function loginAction(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const email = formData.get('email') as string;
@@ -56,7 +73,7 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
     return { error: 'Por favor, completa todos los campos.' };
   }
 
-  let userToAuth = null;
+  let userToAuth: DriverSession | null = null;
 
   try {
     const user = await prisma.user.findUnique({
@@ -74,7 +91,7 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
     }
 
     if (user.role !== 'DELIVERY') {
-      return { error: 'Acceso denegado. Exclusivo para repartidores.' };
+      return { error: 'Acceso exclusivo para repartidores.' };
     }
 
     userToAuth = {
@@ -86,21 +103,21 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
 
     const cookieStore = await cookies();
     
-    // Configuración robusta para entornos Cloud / HTTPS
-    cookieStore.set('driver_session', JSON.stringify(userToAuth), { 
+    // Establecemos la cookie de sesión "tokenizada"
+    cookieStore.set('driver_session', encodeSession(userToAuth), { 
       httpOnly: true, 
-      secure: true, // Forzamos true ya que el entorno es HTTPS
+      secure: true, // Crucial para entornos HTTPS/Cloud
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 días
+      maxAge: 60 * 60 * 24 * 7, // 1 semana
       path: '/'
     });
 
   } catch (error) {
     console.error('Login error:', error);
-    return { error: 'Error de conexión con el servidor.' };
+    return { error: 'Error interno del servidor.' };
   }
 
-  // Redirección fuera del bloque try-catch
+  // Redireccionamos fuera del try-catch para que Next.js maneje el flujo correctamente
   if (userToAuth) {
     redirect('/splash');
   }
@@ -109,7 +126,7 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
 }
 
 /**
- * Cierra la sesión del repartidor eliminando la cookie.
+ * Cierra la sesión del repartidor.
  */
 export async function logoutAction() {
   const cookieStore = await cookies();

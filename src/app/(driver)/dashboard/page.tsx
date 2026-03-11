@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-// Forzamos a que la página sea dinámica para validar sesión en cada carga
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -18,7 +17,6 @@ export default async function DashboardPage() {
   const session = await getDriverSession();
   
   if (!session) {
-    console.log('No session found in Dashboard, redirecting to login...');
     redirect('/login');
   }
 
@@ -27,15 +25,13 @@ export default async function DashboardPage() {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  // Consulta de órdenes asignadas al repartidor para el día de hoy
   const orders = await prisma.order.findMany({
     where: {
       deliveryDriverId: session.id,
       deliveryDate: {
         gte: today,
         lt: tomorrow
-      },
-      isDeleted: false
+      }
     },
     include: {
       orderAddress: true,
@@ -85,7 +81,7 @@ export default async function DashboardPage() {
         <div className="relative group">
           <Search className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
           <input 
-            placeholder="Buscar por cliente o ID..." 
+            placeholder="Buscar pedido..." 
             className="w-full pl-10 pr-3 py-3 border-none bg-white rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-primary/20 outline-none"
           />
         </div>
@@ -141,7 +137,7 @@ export default async function DashboardPage() {
 
                   <div className="mt-5 pt-4 border-t border-slate-50 flex justify-end">
                     <div className="text-primary text-xs font-black uppercase tracking-widest flex items-center">
-                      Gestionar Pedido
+                      Detalles
                       <ChevronRight className="h-4 w-4 ml-1" />
                     </div>
                   </div>
@@ -153,7 +149,7 @@ export default async function DashboardPage() {
           <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-100">
             <Package className="w-12 h-12 text-slate-200 mx-auto mb-4" />
             <p className="text-slate-500 text-sm font-bold">Sin entregas para hoy.</p>
-            <p className="text-slate-400 text-xs mt-1">¡Buen trabajo, disfruta el descanso!</p>
+            <p className="text-slate-400 text-xs mt-1">¡Buen trabajo!</p>
           </div>
         )}
       </main>
