@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { v2 as cloudinary } from 'cloudinary';
 import { Resend } from 'resend';
+import { renderOrderStatusUpdateTemplate } from '@/lib/email/order-status-template';
 
 // Configuración de Cloudinary
 cloudinary.config({
@@ -13,8 +14,44 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Configuración de Resend
-const resend = new Resend(process.env.RESEND_API_KEY);
+const getResendClient = () => {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (!apiKey) return null;
+  return new Resend(apiKey);
+};
+
+const getMailFrom = () =>
+  process.env.RESEND_FROM?.trim() ||
+  process.env.EMAIL_FROM?.trim() ||
+  'DriveMate <notificaciones@reparto.com>';
+
+const sendEmailOrThrow = async (params: {
+  to: string;
+  subject: string;
+  html: string;
+}) => {
+  const resend = getResendClient();
+  if (!resend) {
+    throw new Error('RESEND_API_KEY no esta configurada.');
+  }
+
+  const response = await resend.emails.send({
+    from: getMailFrom(),
+    to: params.to,
+    subject: params.subject,
+    html: params.html,
+  });
+
+  if ((response as any)?.error) {
+    throw new Error((response as any).error.message || 'Resend rechazo el envio del correo.');
+  }
+
+  if (!(response as any)?.data?.id) {
+    throw new Error('Resend no devolvio id de mensaje.');
+  }
+
+  return (response as any).data.id as string;
+};
 
 /**
  * Obtiene las órdenes por driverId y status.
@@ -62,10 +99,9 @@ export async function reportFailedDelivery(orderId: number, comment: string) {
     const customerEmail = (order as any).guestEmail || order.user?.email;
     const customerName = (order as any).guestName || order.user?.name || 'Cliente';
 
-    if (customerEmail && process.env.RESEND_API_KEY) {
+    if (customerEmail) {
       try {
-        await resend.emails.send({
-          from: 'DriveMate <notificaciones@reparto.com>',
+        const mailId = await sendEmailOrThrow({
           to: customerEmail,
           subject: `Intento de entrega fallido - Pedido #${order.id}`,
           html: `
@@ -91,9 +127,12 @@ export async function reportFailedDelivery(orderId: number, comment: string) {
             </div>
           `
         });
+        console.info(`[mail] entrega-fallida enviado orderId=${order.id} to=${customerEmail} messageId=${mailId}`);
       } catch (emailErr) {
         console.error('Error enviando email de falla (Resend):', emailErr);
       }
+    } else {
+      console.warn(`[mail] entrega-fallida omitido: orderId=${order.id} sin email de cliente`);
     }
 
     revalidatePath('/dashboard');
@@ -147,53 +186,64 @@ export async function completeDelivery(
     const customerEmail = (updatedOrder as any).guestEmail || updatedOrder.user?.email;
     const customerName = (updatedOrder as any).guestName || updatedOrder.user?.name || 'Cliente';
 
-    if (customerEmail && process.env.RESEND_API_KEY) {
-      try {
-        const itemsHtml = updatedOrder.items.map(item => `
-          <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 10px 0;"><strong>${(item as any).productNameSnap || 'Producto'}</strong></td>
-            <td style="padding: 10px 0; text-align: right;">x${item.quantity}</td>
-          </tr>
-        `).join('');
+    let emailSent = false;
+    let emailError: string | null = null;
 
-        await resend.emails.send({
-          from: 'DriveMate <notificaciones@reparto.com>',
+    if (customerEmail) {
+      try {
+        const orderPayload = {
+          code: `#${updatedOrder.id}`,
+          customerName,
+          deliveryDate: updatedOrder.deliveryDate,
+          deliveryTimeSlot: updatedOrder.deliveryTimeSlot,
+          subtotal: Number(updatedOrder.subtotal),
+          couponDiscount: Number(updatedOrder.couponDiscount),
+          shippingCost: Number(updatedOrder.shippingCost),
+          total: Number(updatedOrder.total),
+          address: {
+            recipientName: updatedOrder.orderAddress?.recipientName || customerName,
+            line1: updatedOrder.orderAddress?.formattedAddress || 'Por confirmar'
+          },
+          items: updatedOrder.items.map((item) => ({
+            name: item.productNameSnap || 'Producto',
+            quantity: item.quantity,
+            variantName: item.variantNameSnap,
+            subtotal: Number(item.unitPrice) * item.quantity,
+            imageUrl: item.imageSnap
+          }))
+        };
+
+        const html = renderOrderStatusUpdateTemplate({
+          userName: customerName,
+          order: orderPayload,
+          newStatus: 'DELIVERED',
+          updatedAt: updatedOrder.deliveredAt || updatedOrder.updatedAt || new Date()
+        });
+
+        const mailId = await sendEmailOrThrow({
           to: customerEmail,
           subject: `¡Tu pedido #${updatedOrder.id} ha sido entregado!`,
-          html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
-              <div style="background-color: #primary; padding: 20px; text-align: center; color: white;">
-                <h2 style="margin: 0;">¡Entrega Confirmada!</h2>
-              </div>
-              <div style="padding: 20px;">
-                <p>Hola <strong>${customerName}</strong>,</p>
-                <p>Tu pedido ha sido entregado exitosamente.</p>
-                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                  <p style="margin: 5px 0;"><strong>Orden:</strong> #${updatedOrder.id}</p>
-                  <p style="margin: 5px 0;"><strong>Recibido por:</strong> ${receiverName}</p>
-                  <p style="margin: 5px 0;"><strong>Fecha:</strong> ${new Date().toLocaleString()}</p>
-                  ${observations ? `<p style="margin: 5px 0;"><strong>Nota:</strong> ${observations}</p>` : ''}
-                </div>
-                <h3 style="border-bottom: 2px solid #primary; padding-bottom: 5px;">Detalle del Pedido</h3>
-                <table style="width: 100%; border-collapse: collapse;">${itemsHtml}</table>
-                ${finalSignatureUrl ? `
-                  <div style="margin-top: 30px; text-align: center; border-top: 1px dashed #ddd; padding-top: 20px;">
-                    <p style="font-size: 11px; color: #999; margin-bottom: 10px;">Firma de recepción:</p>
-                    <img src="${finalSignatureUrl}" width="180" style="border: 1px solid #eee; padding: 5px; border-radius: 4px;" />
-                  </div>` : ''}
-              </div>
-              <div style="background: #f4f4f4; padding: 15px; text-align: center; font-size: 11px; color: #777;">
-                Gracias por confiar en DriveMate.
-              </div>
-            </div>
-          `
+          html,
         });
+        emailSent = true;
+        console.info(`[mail] entregado enviado orderId=${updatedOrder.id} to=${customerEmail} messageId=${mailId}`);
       } catch (emailErr) {
         console.error('Error enviando email de éxito (Resend):', emailErr);
+        emailError = emailErr instanceof Error ? emailErr.message : 'Error desconocido al enviar correo';
       }
+    } else {
+      emailError = 'La orden no tiene correo de cliente (guestEmail/user.email).';
+      console.warn(`[mail] entregado omitido: orderId=${updatedOrder.id} sin email de cliente`);
     }
 
     revalidatePath('/dashboard');
+    if (!emailSent) {
+      return {
+        success: false,
+        error: `La entrega se confirmo, pero no se pudo enviar el correo. ${emailError || ''}`.trim(),
+      };
+    }
+
     return { success: true };
   } catch (error: any) {
     console.error('Error en completeDelivery:', error);

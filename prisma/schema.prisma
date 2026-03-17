@@ -34,6 +34,7 @@ model User {
   chat_sessions           chat_sessions[]
   coupon_redemptions      coupon_redemptions[]
   coupon_users            coupon_users[]
+  csat_surveys            csat_surveys?
   loyalty_history         loyalty_history[]
   order_cancellation_logs order_cancellation_logs[]
   driverOrders            Order[]                   @relation("DriverOrders")
@@ -78,6 +79,7 @@ model Order {
   proofOfDeliveryReceiver  String?
   proofOfDeliverySignature String?                   @db.LongText
   coupon_redemptions       coupon_redemptions[]
+  csat_surveys             csat_surveys[]
   loyalty_history          loyalty_history[]
   orderAddress             OrderAddress?
   order_cancellation_logs  order_cancellation_logs[]
@@ -412,7 +414,7 @@ model hero_banners {
   dataAiHint  String?  @db.VarChar(255)
   showOnHome  Boolean  @default(true)
   createdAt   DateTime @default(now())
-  updatedAt   DateTime
+  updatedAt   DateTime @default(now())
 
   @@index([showOnHome, updatedAt])
 }
@@ -744,6 +746,25 @@ model wishlist_items {
   @@unique([userId, selectionKey])
   @@index([productId], map: "wishlist_items_productId_fkey")
   @@index([variantId])
+}
+
+model csat_surveys {
+  id                  Int      @id @default(autoincrement())
+  userId              Int      @unique
+  orderId             Int
+  csatRating          Int?
+  npsScore            Int?
+  comment             String?  @db.Text
+  dismissed           Boolean  @default(false)
+  rewardPointsGranted Boolean  @default(false)
+  device              String?  @db.VarChar(50)
+  browser             String?  @db.VarChar(50)
+  pageUrl             String?  @db.VarChar(255)
+  createdAt           DateTime @default(now())
+  orders              Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  users               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
 }
 
 enum refund_rules_orderStatus {
