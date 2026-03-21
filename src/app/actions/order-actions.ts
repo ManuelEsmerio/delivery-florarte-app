@@ -5,7 +5,13 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { v2 as cloudinary } from 'cloudinary';
 import { Resend } from 'resend';
-import { renderOrderStatusUpdateTemplate } from '@/lib/email/order-status-template';
+import { requireAuthenticatedDriverFromCookies } from '@/lib/auth';
+import { headers } from 'next/headers';
+import {
+  renderFailedDeliveryAttemptTemplate,
+  renderOrderStatusUpdateTemplate,
+} from '@/lib/email/order-status-template';
+import { appendSecurityEvent, getRequestSecurityContext } from '@/lib/security-audit';
 
 // Configuración de Cloudinary
 cloudinary.config({
@@ -56,25 +62,41 @@ const sendEmailOrThrow = async (params: {
 /**
  * Obtiene las órdenes por driverId y status.
  */
-export async function getOrdersByStatus(driverId: number, status: 'OUT_FOR_DELIVERY' | 'DELIVERED') {
-  try {
-    const orders = await prisma.order.findMany({
-      where: {
-        deliveryDriverId: driverId,
-        status: status
-      },
-      include: {
-        orderAddress: true,
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      take: 50
-    });
-    return JSON.parse(JSON.stringify(orders));
-  } catch (error) {
-    console.error('Error fetching orders:', error);
-    return [];
+export async function getOrdersByStatus(status: 'OUT_FOR_DELIVERY' | 'DELIVERED') {
+  const session = await requireAuthenticatedDriverFromCookies();
+
+  const orders = await prisma.order.findMany({
+    where: {
+      deliveryDriverId: session.driverId,
+      status: status
+    },
+    include: {
+      orderAddress: true,
+    },
+    orderBy: {
+      createdAt: 'desc'
+    },
+    take: 50
+  });
+
+  return JSON.parse(JSON.stringify(orders));
+}
+
+async function assertOrderOwnership(orderId: number, driverId: number) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      deliveryDriverId: true,
+    },
+  });
+
+  if (!order) {
+    throw new Error('La orden no existe.');
+  }
+
+  if (order.deliveryDriverId !== driverId) {
+    throw new Error('No autorizado para operar esta orden.');
   }
 }
 
@@ -84,6 +106,11 @@ export async function getOrdersByStatus(driverId: number, status: 'OUT_FOR_DELIV
  */
 export async function reportFailedDelivery(orderId: number, comment: string) {
   try {
+    const session = await requireAuthenticatedDriverFromCookies();
+    const requestHeaders = await headers();
+    const requestContext = getRequestSecurityContext(requestHeaders, `/orders/${orderId}/incident`);
+    await assertOrderOwnership(orderId, session.driverId);
+
     // 1. Actualizar el deliveryNotes en la base de datos
     const order = await prisma.order.update({
       where: { id: orderId },
@@ -91,6 +118,8 @@ export async function reportFailedDelivery(orderId: number, comment: string) {
         deliveryNotes: comment, 
       },
       include: {
+        items: true,
+        orderAddress: true,
         user: true,
       }
     });
@@ -101,31 +130,26 @@ export async function reportFailedDelivery(orderId: number, comment: string) {
 
     if (customerEmail) {
       try {
+        const html = renderFailedDeliveryAttemptTemplate({
+          userName: customerName,
+          order: {
+            code: `#${order.id}`,
+            customerName,
+            deliveryDate: order.deliveryDate,
+            deliveryTimeSlot: order.deliveryTimeSlot,
+            address: {
+              recipientName: order.orderAddress?.recipientName || customerName,
+              line1: order.orderAddress?.formattedAddress || 'Por confirmar',
+            },
+          },
+          attemptAt: new Date(),
+          driverComment: comment,
+        });
+
         const mailId = await sendEmailOrThrow({
           to: customerEmail,
           subject: `Intento de entrega fallido - Pedido #${order.id}`,
-          html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; padding: 20px;">
-              <div style="text-align: center; margin-bottom: 20px;">
-                <h2 style="color: #d93025; margin: 0;">Intento de Entrega Fallido</h2>
-                <p style="color: #5f6368;">Pedido #${order.id}</p>
-              </div>
-              <p>Hola <strong>${customerName}</strong>,</p>
-              <p>Hemos intentado entregar tu pedido hoy a las ${new Date().toLocaleTimeString()}.</p>
-              <div style="background: #fdf2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d93025;">
-                <p style="margin: 0; font-weight: bold; color: #d93025;">Nota del repartidor:</p>
-                <p style="margin: 5px 0 0 0; font-style: italic; color: #3c4043;">"${comment}"</p>
-              </div>
-              <div style="background: #fff8e1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f9ab00;">
-                <p style="margin: 0; font-size: 14px; color: #3c4043;">
-                  <strong>Aviso importante:</strong> El repartidor tuvo 10 min llamando a la puerta pero no recibió respuesta y tu producto será regresado a la tienda.
-                </p>
-              </div>
-              <p style="font-size: 12px; color: #999; margin-top: 30px; text-align: center; border-top: 1px solid #eee; padding-top: 20px;">
-                Si tienes dudas, por favor contacta con nuestro equipo de soporte.
-              </p>
-            </div>
-          `
+          html,
         });
         console.info(`[mail] entrega-fallida enviado orderId=${order.id} to=${customerEmail} messageId=${mailId}`);
       } catch (emailErr) {
@@ -136,6 +160,21 @@ export async function reportFailedDelivery(orderId: number, comment: string) {
     }
 
     revalidatePath('/dashboard');
+
+    await appendSecurityEvent({
+      type: 'delivery_incident',
+      driverId: session.driverId,
+      email: session.user.email,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      browser: requestContext.browser,
+      route: requestContext.route,
+      metadata: {
+        orderId,
+        comment,
+      },
+    });
+
     return { success: true };
   } catch (error: any) {
     console.error('Error en reportFailedDelivery:', error);
@@ -152,6 +191,16 @@ export async function completeDelivery(
   signatureBase64?: string,
   observations?: string
 ) {
+  let session;
+  const requestHeaders = await headers();
+  const requestContext = getRequestSecurityContext(requestHeaders, `/orders/${orderId}/complete`);
+  try {
+    session = await requireAuthenticatedDriverFromCookies();
+    await assertOrderOwnership(orderId, session.driverId);
+  } catch (error: any) {
+    return { success: false, error: error.message || 'No autorizado.' };
+  }
+
   let finalSignatureUrl = null;
 
   if (signatureBase64 && signatureBase64.startsWith('data:image')) {
@@ -237,6 +286,22 @@ export async function completeDelivery(
     }
 
     revalidatePath('/dashboard');
+
+    await appendSecurityEvent({
+      type: 'delivery_complete',
+      driverId: session.driverId,
+      email: session.user.email,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      browser: requestContext.browser,
+      route: requestContext.route,
+      metadata: {
+        orderId,
+        receiverName,
+        hasSignature: Boolean(finalSignatureUrl),
+      },
+    });
+
     if (!emailSent) {
       return {
         success: false,

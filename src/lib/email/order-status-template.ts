@@ -31,6 +31,13 @@ interface TemplateProps {
   updatedAt: Date;
 }
 
+interface FailedDeliveryTemplateProps {
+  userName: string;
+  order: Pick<OrderEmailPayload, 'code' | 'customerName' | 'deliveryDate' | 'deliveryTimeSlot' | 'address'>;
+  attemptAt: Date;
+  driverComment: string;
+}
+
 const statusDetails: Record<OrderStatus, { title: string; message: string; accent: string; bg: string; icon: string }> = {
   CREATED: {
     title: 'Pedido creado',
@@ -298,6 +305,130 @@ export const renderOrderStatusUpdateTemplate = ({ userName, order, newStatus, up
 
         <div class="cta">
           <a href="${siteUrl}/orders">Ver seguimiento completo</a>
+        </div>
+      </div>
+      <div class="footer">
+        <div style="margin-bottom:12px;">
+          <a href="${siteUrl}">Sitio</a>
+          <a href="${siteUrl}/privacy">Privacidad</a>
+          <a href="${siteUrl}/contacto">Soporte</a>
+        </div>
+        <p style="margin:0;color:#b0b4c3;font-size:11px;">© ${new Date().getFullYear()} Florarte · Este es un correo automatico.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+  `;
+};
+
+export const renderFailedDeliveryAttemptTemplate = ({
+  userName,
+  order,
+  attemptAt,
+  driverComment,
+}: FailedDeliveryTemplateProps): string => {
+  const deliveryDateLabel = formatDateSafe(order.deliveryDate, 'Fecha por confirmar');
+  const deliverySlot = order.deliveryTimeSlot ? formatTimeSlotForUI(order.deliveryTimeSlot) : 'Horario por confirmar';
+
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Intento de entrega fallido · ${order.code}</title>
+  <style>
+    body { margin:0; padding:0; background:#eef2f8; font-family:'Segoe UI',Arial,sans-serif; color:#0f172a; }
+    .wrapper { padding:32px 12px; }
+    .card { max-width:660px; margin:0 auto; background:#ffffff; border-radius:32px; overflow:hidden; box-shadow:0 26px 70px rgba(15,23,42,0.18); }
+    .header { text-align:center; padding:34px 24px 20px; background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%); border-bottom:1px solid #edf0f5; }
+    .header img { width:128px; height:auto; display:block; margin:0 auto 12px; }
+    .order-chip { display:inline-block; padding:7px 18px; border-radius:999px; font-weight:700; font-size:11px; letter-spacing:0.17em; color:#64748b; background:#eef2ff; }
+    .hero { text-align:center; padding:28px 32px 8px; }
+    .status-icon { width:86px; height:86px; border-radius:24px; margin:0 auto 18px; font-size:36px; font-weight:800; line-height:86px; text-align:center; background:rgba(239,68,68,0.12); color:#ef4444; }
+    .status-pill { display:inline-block; padding:7px 18px; border-radius:999px; font-size:11px; letter-spacing:0.16em; text-transform:uppercase; font-weight:700; background:rgba(239,68,68,0.12); color:#ef4444; }
+    .content { padding:0 36px 40px; }
+    .card-section { margin-top:20px; border:1px solid #edf0f5; border-radius:22px; padding:22px; background:#fcfdff; box-shadow:0 8px 18px rgba(15,23,42,0.05); }
+    .card-section h3 { margin:0 0 14px; font-size:13px; letter-spacing:0.3em; color:#98a2b3; text-transform:uppercase; }
+    .info-row { display:flex; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    .info-row span { font-size:14px; color:#475467; }
+    .info-row strong { font-size:15px; color:#0f172a; text-align:right; }
+    .alert { margin-top:24px; border-radius:18px; padding:18px; border-left:5px solid #ef4444; background:#fff1f2; }
+    .alert strong { color:#b42318; }
+    .warning { margin-top:16px; border-radius:18px; padding:18px; border-left:5px solid #f59e0b; background:#fffbeb; }
+    .warning strong { color:#b45309; }
+    .cta { text-align:center; margin-top:32px; }
+    .cta a { display:inline-block; background:#ff2d78; color:#ffffff; text-decoration:none; font-weight:700; padding:16px 46px; border-radius:999px; box-shadow:0 18px 32px rgba(255,45,120,0.35); }
+    .footer { background:#f7f8fc; padding:24px 18px 32px; text-align:center; color:#98a2b3; font-size:12px; }
+    .footer a { color:#b0b0c0; text-decoration:none; margin:0 8px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; font-size:12px; }
+    @media (max-width:640px) {
+      .wrapper { padding:16px 0; }
+      .card { border-radius:20px; }
+      .header { padding:24px 16px 16px; }
+      .hero { padding:20px 20px 8px; }
+      .hero h1 { font-size:22px !important; }
+      .status-icon { width:70px; height:70px; line-height:70px; font-size:30px; }
+      .content { padding:0 16px 28px; }
+      .card-section { padding:16px; }
+      .info-row { flex-direction:column; gap:4px; }
+      .info-row strong { text-align:left; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td align="center" style="padding-bottom:12px;">
+              <img src="${logoUrl}" alt="Florarte" width="128" style="display:block;width:128px;height:auto;" />
+            </td>
+          </tr>
+        </table>
+        <span class="order-chip">${order.code}</span>
+      </div>
+      <div class="hero">
+        <div class="status-icon">!</div>
+        <div class="status-pill">Intento de entrega</div>
+        <h1 style="margin:14px 0 6px;font-size:28px;color:#0f172a;">No pudimos completar la entrega</h1>
+        <p style="margin:0;color:#475467;">Hola ${escapeHtml(userName)}, intentamos entregar tu pedido pero no obtuvimos respuesta.</p>
+        <p style="margin:6px 0 0;color:#98a2b3;font-size:13px;">Intento registrado el ${formatDateTime(attemptAt)}</p>
+      </div>
+      <div class="content">
+        <div class="card-section">
+          <h3>Detalles de la orden</h3>
+          <div class="info-row">
+            <span>Numero de pedido</span>
+            <strong>${order.code}</strong>
+          </div>
+          <div class="info-row">
+            <span>Entrega programada</span>
+            <strong>${deliveryDateLabel} · ${deliverySlot}</strong>
+          </div>
+          <div class="info-row">
+            <span>Destinatario</span>
+            <strong>${escapeHtml(order.address.recipientName || order.customerName)}</strong>
+          </div>
+          <div class="info-row" style="margin-bottom:0;">
+            <span>Direccion</span>
+            <strong>${escapeHtml(order.address.line1 || 'Por confirmar')}</strong>
+          </div>
+        </div>
+
+        <div class="alert">
+          <strong>Nota del repartidor:</strong>
+          <p style="margin:8px 0 0;color:#475467;">${escapeHtml(driverComment || 'Sin comentarios adicionales.')}</p>
+        </div>
+
+        <div class="warning">
+          <strong>Aviso importante:</strong>
+          <p style="margin:8px 0 0;color:#475467;">El repartidor espero 10 minutos en el domicilio y no recibio respuesta, por lo que el producto fue retornado a tienda.</p>
+        </div>
+
+        <div class="cta">
+          <a href="${siteUrl}/orders">Revisar mi pedido</a>
         </div>
       </div>
       <div class="footer">
