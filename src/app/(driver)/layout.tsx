@@ -2,20 +2,13 @@
 "use client";
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Home, User, Map } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Suspense } from 'react';
 
 function DriverNav() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const driverId = searchParams.get('driverId');
-  
-  // Función para mantener el driverId en todos los enlaces de navegación
-  const getUrl = (base: string) => {
-    return driverId ? `${base}?driverId=${driverId}` : base;
-  };
 
   const openGoogleMaps = () => {
     // Abre Google Maps en una nueva pestaña
@@ -23,12 +16,12 @@ function DriverNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 mx-auto max-w-md bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 h-20 flex items-center justify-around z-50 px-6">
+    <nav className="fixed bottom-0 left-0 right-0 mx-auto max-w-md bg-background border-t border-border h-20 flex items-center justify-around z-50 px-6 transition-colors duration-300">
       <Link 
-        href={getUrl('/dashboard')}
+        href="/dashboard"
         className={cn(
           "flex flex-col items-center justify-center space-y-1 w-full h-full transition-all duration-300",
-          pathname === '/dashboard' ? "text-primary" : "text-slate-400"
+          pathname === '/dashboard' ? "text-primary" : "text-muted-foreground"
         )}
       >
         <Home className={cn("h-6 w-6", pathname === '/dashboard' && "stroke-[2.5px]")} />
@@ -46,10 +39,10 @@ function DriverNav() {
       </div>
 
       <Link 
-        href={getUrl('/profile')}
+        href="/profile"
         className={cn(
           "flex flex-col items-center justify-center space-y-1 w-full h-full transition-all duration-300",
-          pathname === '/profile' ? "text-primary" : "text-slate-400"
+          pathname === '/profile' ? "text-primary" : "text-muted-foreground"
         )}
       >
         <User className={cn("h-6 w-6", pathname === '/profile' && "stroke-[2.5px]")} />
@@ -62,11 +55,11 @@ function DriverNav() {
 export default function DriverLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col flex-1 h-screen overflow-hidden">
-      <main className="flex-1 overflow-y-auto bg-slate-50/50">
+      <main className="flex-1 overflow-y-auto bg-background transition-colors duration-300">
         {children}
       </main>
 
-      <Suspense fallback={<div className="h-20 bg-white border-t" />}>
+      <Suspense fallback={<div className="h-20 bg-background border-t border-border" />}>
         <DriverNav />
       </Suspense>
     </div>

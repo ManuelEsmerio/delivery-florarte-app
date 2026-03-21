@@ -1,92 +1,54 @@
+"use client";
 
-import { redirect } from 'next/navigation';
-import { requireAuthenticatedDriverFromCookies } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import OrderDetailClient from './OrderDetailClient';
+import { useState, useTransition } from 'react';
+import {
+  ArrowLeft,
+  MapPin,
+  Phone,
+  Navigation,
+  CheckCircle2,
+  User,
+  Store,
+  FileText,
+  AlertTriangle,
+  Home,
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import Link from 'next/link';
+import { Button } from "@/components/ui/button";
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { reportFailedDelivery } from '@/app/actions/order-actions';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { cn } from '@/lib/utils';
 
-export default async function OrderDetailPage({ params }: { params: { id: string } }) {
-  const { id } = params;
-
-  let driver: Awaited<ReturnType<typeof requireAuthenticatedDriverFromCookies>>;
-  try {
-    driver = await requireAuthenticatedDriverFromCookies();
-  } catch {
-    redirect('/login');
-    return null;
-  }
-
-  const orderId = parseInt(id);
-  if (isNaN(orderId)) redirect('/dashboard');
-
-  const order = await prisma.order.findFirst({
-    where: { id: orderId, deliveryDriverId: driver.driverId },
-    include: {
-      orderAddress: true,
-      items: true,
-      user: { select: { name: true, email: true } },
-    },
-  });
-
-  return <OrderDetailClient order={order} orderId={orderId} />;
+interface OrderDetailClientProps {
+  order: any | null;
+  orderId: number;
 }
 
-export default function OrderDetailPage() {
-  const { id } = useParams();
+export default function OrderDetailClient({ order: initialOrder, orderId }: OrderDetailClientProps) {
   const router = useRouter();
   const { toast } = useToast();
-  
-  const [order, setOrder] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [order, setOrder] = useState<any>(initialOrder);
   const [isPending, startTransition] = useTransition();
   const [showFailDialog, setShowFailDialog] = useState(false);
   const [failComment, setFailComment] = useState('');
   const [isCustomFail, setIsCustomFail] = useState(false);
-  const [session, setSession] = useState<DriverSession | null>(null);
 
   const incidentResponses = [
     "No se encontraba en casa",
-    "Dirección equivocada"
+    "Dirección equivocada",
   ];
-
-  useEffect(() => {
-    async function loadOrder() {
-      const driverSession = await fetchDriverSession();
-
-      if (!driverSession) {
-        clearDriverSession();
-        router.replace('/login');
-        return;
-      }
-
-      setSession(driverSession);
-
-      try {
-        const res = await fetch(`/api/orders/${id}`, {
-          credentials: 'include',
-          cache: 'no-store',
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          setOrder(data);
-        } else if (res.status === 401 || res.status === 403) {
-          clearDriverSession();
-          router.replace('/login');
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "No se pudo cargar la información del pedido."
-          });
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadOrder();
-  }, [id, router, toast]);
 
   const handleOpenGPS = () => {
     if (order?.orderAddress?.formattedAddress) {
@@ -100,68 +62,35 @@ export default function OrderDetailPage() {
       toast({
         variant: "destructive",
         title: "Motivo requerido",
-        description: "Selecciona el motivo por el cual no se pudo realizar la entrega."
+        description: "Selecciona el motivo por el cual no se pudo realizar la entrega.",
       });
       return;
     }
-
     startTransition(async () => {
-      if (!session) {
-        clearDriverSession();
-        router.replace('/login');
-        return;
-      }
-
-      const res = await reportFailedDelivery(parseInt(id as string), failComment);
+      const res = await reportFailedDelivery(orderId, failComment);
       if (res.success) {
-        toast({
-          title: "Incidencia Reportada",
-          description: "Se ha guardado la nota de incidencia."
-        });
+        toast({ title: "Incidencia Reportada", description: "Se ha guardado la nota de incidencia." });
         setShowFailDialog(false);
         setOrder((prev: any) => ({ ...prev, deliveryNotes: failComment }));
       } else {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: res.error || "No se pudo procesar el reporte."
-        });
+        toast({ variant: "destructive", title: "Error", description: res.error || "No se pudo procesar el reporte." });
       }
     });
   };
 
-  const goToDashboard = () => {
-    router.push('/dashboard');
-  };
-
-  if (isLoading) return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground transition-colors duration-300">
-      <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-      <p className="mt-4 font-bold text-muted-foreground uppercase tracking-widest text-xs">Cargando pedido...</p>
-    </div>
-  );
-
   if (!order) return (
-    <div className="p-8 text-center flex flex-col items-center justify-center min-h-screen">
+    <div className="p-8 text-center flex flex-col items-center justify-center min-h-screen bg-background text-foreground">
       <AlertTriangle className="size-12 text-red-500 mb-4" />
       <h2 className="text-xl font-black">Pedido no encontrado</h2>
-      <Button asChild className="mt-6 rounded-xl bg-primary" onClick={goToDashboard}>
-        <span>Regresar al Inicio</span>
+      <Button className="mt-6 rounded-xl bg-primary" onClick={() => router.push('/dashboard')}>
+        Regresar al Inicio
       </Button>
     </div>
   );
 
-  const senderInfo = order.isGuest 
-    ? {
-        name: order.guestName || "Invitado",
-        email: order.guestEmail || "Sin email",
-        phone: order.guestPhone || null
-      }
-    : {
-        name: order.user?.name || "Cliente Registrado",
-        email: order.user?.email || "Sin email",
-        phone: order.user?.phone || null
-      };
+  const senderInfo = order.isGuest
+    ? { name: order.guestName || "Invitado", email: order.guestEmail || "Sin email" }
+    : { name: order.user?.name || "Cliente Registrado", email: order.user?.email || "Sin email" };
 
   const isDelivered = order.status === 'DELIVERED';
 
@@ -174,7 +103,7 @@ export default function OrderDetailPage() {
               <ArrowLeft className="w-6 h-6" />
             </Button>
           ) : (
-            <Button variant="ghost" size="icon" onClick={goToDashboard} className="rounded-full text-primary">
+            <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')} className="rounded-full text-primary">
               <Home className="w-6 h-6" />
             </Button>
           )}
@@ -184,7 +113,7 @@ export default function OrderDetailPage() {
           </div>
         </div>
         <Badge className={`border-none text-[10px] font-black uppercase px-3 py-1 rounded-xl ${
-          isDelivered ? 'bg-green-500 text-white' : 
+          isDelivered ? 'bg-green-500 text-white' :
           order.deliveryNotes ? 'bg-amber-500 text-white' : 'bg-primary text-white'
         }`}>
           {isDelivered ? 'Entregado' : order.deliveryNotes ? 'Incidencia' : 'En Ruta'}
@@ -202,16 +131,16 @@ export default function OrderDetailPage() {
               className="object-cover grayscale-[0.2]"
               priority
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
               <div className="relative flex items-center justify-center">
-                <div className="absolute size-16 bg-primary/20 rounded-full animate-ping"></div>
+                <div className="absolute size-16 bg-primary/20 rounded-full animate-ping" />
                 <div className="size-14 bg-primary rounded-2xl flex items-center justify-center shadow-2xl border-4 border-background">
                   <MapPin className="text-white w-7 h-7" />
                 </div>
               </div>
             </div>
-            <Button 
+            <Button
               onClick={handleOpenGPS}
               className="absolute bottom-6 right-4 bg-card text-primary hover:bg-muted px-6 py-6 rounded-2xl shadow-2xl border border-border font-black text-xs uppercase tracking-widest"
             >
@@ -250,7 +179,7 @@ export default function OrderDetailPage() {
                 <h3 className="font-black uppercase tracking-tight text-sm">Nota de Incidencia</h3>
               </div>
               <p className="text-sm text-amber-800 dark:text-amber-200 bg-card/70 p-4 rounded-2xl border border-amber-100 dark:border-amber-900/60 leading-relaxed italic">
-                "{order.deliveryNotes}"
+                &ldquo;{order.deliveryNotes}&rdquo;
               </p>
             </div>
           )}
@@ -305,9 +234,9 @@ export default function OrderDetailPage() {
                 <div key={item.id} className="flex items-center justify-between bg-card p-4 rounded-[1.5rem] border border-border shadow-sm transition-colors duration-300">
                   <div className="flex items-center gap-4">
                     <div className="size-14 relative rounded-2xl overflow-hidden bg-muted shrink-0">
-                      <Image 
-                        src={item.imageSnap || "https://picsum.photos/seed/product/200/200"} 
-                        alt={item.productNameSnap} 
+                      <Image
+                        src={item.imageSnap || "https://picsum.photos/seed/product/200/200"}
+                        alt={item.productNameSnap}
                         fill
                         sizes="56px"
                         className="object-cover"
@@ -326,15 +255,14 @@ export default function OrderDetailPage() {
 
           {!isDelivered ? (
             <section className="pt-8 flex flex-col gap-3">
-              <Button 
+              <Button
                 onClick={() => setShowFailDialog(true)}
-                variant="outline" 
+                variant="outline"
                 className="w-full border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-300 bg-red-50/60 dark:bg-red-950/30 h-14 rounded-2xl font-black text-xs uppercase tracking-widest"
               >
                 <AlertTriangle className="size-4 mr-2" />
                 Reportar Incidencia
               </Button>
-
               <Button className="w-full bg-primary text-white h-16 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20" asChild>
                 <Link href={`/orders/${order.id}/deliver`}>
                   <CheckCircle2 className="size-5 mr-2" />
@@ -344,8 +272,8 @@ export default function OrderDetailPage() {
             </section>
           ) : (
             <section className="pt-12 pb-8">
-              <Button 
-                onClick={goToDashboard}
+              <Button
+                onClick={() => router.push('/dashboard')}
                 className="w-full bg-foreground text-background h-16 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl"
               >
                 <Home className="size-5 mr-2" />
@@ -381,14 +309,11 @@ export default function OrderDetailPage() {
                   <button
                     key={resp}
                     type="button"
-                    onClick={() => {
-                      setFailComment(resp);
-                      setIsCustomFail(false);
-                    }}
+                    onClick={() => { setFailComment(resp); setIsCustomFail(false); }}
                     className={cn(
                       "p-3 rounded-2xl text-left text-[11px] font-bold transition-all border-2 h-full flex items-center",
                       failComment === resp && !isCustomFail
-                        ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-200/40" 
+                        ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-200/40"
                         : "bg-card border-border text-foreground/80 hover:border-red-200 dark:hover:border-red-800"
                     )}
                   >
@@ -397,10 +322,7 @@ export default function OrderDetailPage() {
                 ))}
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsCustomFail(true);
-                    if (incidentResponses.includes(failComment)) setFailComment('');
-                  }}
+                  onClick={() => { setIsCustomFail(true); if (incidentResponses.includes(failComment)) setFailComment(''); }}
                   className={cn(
                     "col-span-2 p-3 rounded-2xl text-left text-[11px] font-bold transition-all border-2 h-full flex items-center",
                     isCustomFail
@@ -411,10 +333,9 @@ export default function OrderDetailPage() {
                   Otro motivo (Escribir detalle)
                 </button>
               </div>
-
               {isCustomFail && (
                 <div className="animate-in slide-in-from-top-2 duration-300">
-                  <Textarea 
+                  <Textarea
                     placeholder="Describe detalladamente el motivo..."
                     className="bg-muted/60 border border-border rounded-2xl p-4 text-sm min-h-[100px] text-foreground"
                     value={failComment}
@@ -426,15 +347,15 @@ export default function OrderDetailPage() {
           </div>
 
           <DialogFooter className="flex flex-col gap-2 sm:flex-col">
-            <Button 
+            <Button
               onClick={handleReportFail}
               disabled={isPending}
               className="w-full bg-red-600 hover:bg-red-700 h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-white shadow-lg shadow-red-200"
             >
               {isPending ? "Procesando..." : "Confirmar Reporte"}
             </Button>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               onClick={() => setShowFailDialog(false)}
               className="w-full font-black text-muted-foreground text-xs uppercase tracking-widest h-10"
             >

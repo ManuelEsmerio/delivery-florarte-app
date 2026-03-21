@@ -4,6 +4,39 @@
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
+import { headers } from 'next/headers';
+import { requireAuthenticatedDriverFromCookies } from '@/lib/auth';
+import {
+  createDriverSessionToken,
+  DRIVER_SESSION_COOKIE,
+  verifyDriverSessionToken,
+} from '@/lib/auth-token';
+import {
+  appendSecurityEvent,
+  checkLoginRateLimit,
+  clearFailedLoginAttempts,
+  getRequestSecurityContext,
+  isAllowedDriverEmail,
+  recordFailedLoginAttempt,
+} from '@/lib/security-audit';
+
+async function writeDriverSessionCookie(token: string) {
+  const cookieStore = await cookies();
+
+  cookieStore.set(DRIVER_SESSION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 60 * 12,
+  });
+}
+
+async function clearDriverSessionCookie() {
+  const cookieStore = await cookies();
+  cookieStore.delete(DRIVER_SESSION_COOKIE);
+}
 
 export type ActionState = {
   error?: string;
@@ -16,14 +49,48 @@ export type ActionState = {
 } | null;
 
 /**
- * Inicio de sesión utilizando passwordHash y sin cookies para entorno remoto.
+ * Inicio de sesión utilizando passwordHash y cookie httpOnly.
  */
 export async function loginAction(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
+  const requestHeaders = await headers();
+  const requestContext = getRequestSecurityContext(requestHeaders, '/login');
 
   if (!email || !password) {
     return { error: "Por favor, completa todos los campos." };
+  }
+
+  const throttle = await checkLoginRateLimit(email, requestContext.ipAddress);
+  if (!throttle.allowed) {
+    await appendSecurityEvent({
+      type: 'login_locked',
+      email,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      browser: requestContext.browser,
+      route: requestContext.route,
+      metadata: {
+        retryAfterSeconds: throttle.retryAfterSeconds,
+      },
+    });
+
+    return {
+      error: `Acceso temporalmente bloqueado. Intenta de nuevo en ${throttle.retryAfterSeconds} segundos.`,
+    };
+  }
+
+  if (!isAllowedDriverEmail(email)) {
+    await appendSecurityEvent({
+      type: 'login_domain_denied',
+      email,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      browser: requestContext.browser,
+      route: requestContext.route,
+    });
+
+    return { error: "Tu correo no pertenece a un dominio autorizado." };
   }
 
   try {
@@ -32,6 +99,19 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
     });
 
     if (!user || !user.passwordHash) {
+      const failed = await recordFailedLoginAttempt(email, requestContext.ipAddress);
+      await appendSecurityEvent({
+        type: failed.locked ? 'login_locked' : 'login_failure',
+        email,
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        browser: requestContext.browser,
+        route: requestContext.route,
+        metadata: {
+          reason: 'user_not_found_or_missing_password',
+          retryAfterSeconds: failed.retryAfterSeconds,
+        },
+      });
       return { error: "Credenciales inválidas." };
     }
 
@@ -41,8 +121,62 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
     const isPlainMatch = password === user.passwordHash;
 
     if (!isPasswordValid && !isPlainMatch) {
+      const failed = await recordFailedLoginAttempt(email, requestContext.ipAddress);
+      await appendSecurityEvent({
+        type: failed.locked ? 'login_locked' : 'login_failure',
+        email,
+        driverId: user.id,
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        browser: requestContext.browser,
+        route: requestContext.route,
+        metadata: {
+          reason: 'invalid_password',
+          retryAfterSeconds: failed.retryAfterSeconds,
+        },
+      });
       return { error: "Credenciales inválidas." };
     }
+
+    if (user.role !== 'DELIVERY' || user.isDeleted) {
+      await appendSecurityEvent({
+        type: 'auth_denied',
+        email,
+        driverId: user.id,
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        browser: requestContext.browser,
+        route: requestContext.route,
+        metadata: {
+          reason: 'role_or_deleted',
+          role: user.role,
+          isDeleted: user.isDeleted,
+        },
+      });
+      return { error: "Tu usuario no tiene acceso al portal de repartidores." };
+    }
+
+    await clearFailedLoginAttempts(email, requestContext.ipAddress);
+
+    const token = await createDriverSessionToken({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      tokenVersion: user.tokenVersion,
+    });
+
+    await writeDriverSessionCookie(token);
+
+    await appendSecurityEvent({
+      type: 'login_success',
+      email,
+      driverId: user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      browser: requestContext.browser,
+      route: requestContext.route,
+    });
 
     return { 
       success: true,
@@ -54,6 +188,17 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
     };
   } catch (error) {
     console.error('Login Error:', error);
+    await appendSecurityEvent({
+      type: 'login_failure',
+      email,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      browser: requestContext.browser,
+      route: requestContext.route,
+      metadata: {
+        reason: error instanceof Error ? error.message : 'unknown_error',
+      },
+    });
     return { error: "Error al intentar iniciar sesión." };
   }
 }
@@ -62,19 +207,59 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
  * Cierre de sesión (limpia estado en servidor si es necesario)
  */
 export async function logoutAction() {
+  const cookieStore = await cookies();
+  const cookieToken = cookieStore.get(DRIVER_SESSION_COOKIE)?.value;
+  const requestHeaders = await headers();
+  const requestContext = getRequestSecurityContext(requestHeaders, '/logout');
+
+  if (cookieToken) {
+    try {
+      const payload = await verifyDriverSessionToken(cookieToken);
+      const driverId = Number(payload.driverId || payload.sub);
+
+      if (driverId) {
+        await prisma.user.update({
+          where: { id: driverId },
+          data: {
+            tokenVersion: {
+              increment: 1,
+            },
+          },
+        });
+
+        await appendSecurityEvent({
+          type: 'logout',
+          email: payload.email,
+          driverId,
+          ipAddress: requestContext.ipAddress,
+          userAgent: requestContext.userAgent,
+          browser: requestContext.browser,
+          route: requestContext.route,
+        });
+      }
+    } catch (error) {
+      console.warn('Logout token ignored:', error);
+    }
+  }
+
+  await clearDriverSessionCookie();
+
   return { success: true };
 }
 
 /**
  * Actualiza la contraseña utilizando el campo passwordHash.
  */
-export async function updatePasswordAction(driverId: number, formData: FormData): Promise<ActionState> {
+export async function updatePasswordAction(formData: FormData): Promise<ActionState> {
   const oldPassword = formData.get('oldPassword') as string;
   const newPassword = formData.get('newPassword') as string;
+  const requestHeaders = await headers();
+  const requestContext = getRequestSecurityContext(requestHeaders, '/profile/password');
   
   try {
+    const session = await requireAuthenticatedDriverFromCookies();
     const user = await prisma.user.findUnique({
-      where: { id: driverId }
+      where: { id: session.driverId }
     });
 
     if (!user || !user.passwordHash) {
@@ -92,7 +277,24 @@ export async function updatePasswordAction(driverId: number, formData: FormData)
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash: hashedNewPassword }
+      data: {
+        passwordHash: hashedNewPassword,
+        tokenVersion: {
+          increment: 1,
+        },
+      }
+    });
+
+    await clearDriverSessionCookie();
+
+    await appendSecurityEvent({
+      type: 'password_change',
+      email: user.email,
+      driverId: user.id,
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      browser: requestContext.browser,
+      route: requestContext.route,
     });
 
     revalidatePath('/profile');

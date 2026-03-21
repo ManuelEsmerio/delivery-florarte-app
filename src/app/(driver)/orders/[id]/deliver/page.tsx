@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, useTransition } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState, useTransition } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,19 +13,52 @@ import { SignaturePad } from '@/components/SignaturePad';
 import { useToast } from "@/hooks/use-toast";
 import { completeDelivery } from '@/app/actions/order-actions';
 import { cn } from '@/lib/utils';
+import { clearDriverSession, fetchDriverSession, type DriverSession } from '@/lib/driver-session';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export default function DeliveryConfirmationPage() {
   const { id } = useParams();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
-  const driverId = searchParams.get('driverId');
 
   const [receiverName, setReceiverName] = useState('');
   const [signature, setSignature] = useState('');
   const [observations, setObservations] = useState('');
   const [isCustom, setIsCustom] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [session, setSession] = useState<DriverSession | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const bootstrapSession = async () => {
+      const driverSession = await fetchDriverSession();
+
+      if (!isActive) return;
+
+      if (!driverSession) {
+        clearDriverSession();
+        router.replace('/login');
+        return;
+      }
+
+      setSession(driverSession);
+    };
+
+    bootstrapSession();
+
+    return () => {
+      isActive = false;
+    };
+  }, [router]);
 
   const quickResponses = [
     "Recibió la persona",
@@ -44,9 +77,20 @@ export default function DeliveryConfirmationPage() {
       });
       return;
     }
-    
+
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmDelivery = () => {
+    setShowConfirmModal(false);
     startTransition(async () => {
       try {
+        if (!session) {
+          clearDriverSession();
+          router.replace('/login');
+          return;
+        }
+
         const res = await completeDelivery(
           parseInt(id as string), 
           receiverName, 
@@ -58,7 +102,7 @@ export default function DeliveryConfirmationPage() {
             title: "¡Entrega Exitosa!",
             description: `El pedido ha sido marcado como entregado.`
           });
-          router.replace(`/orders/${id}?driverId=${driverId}`);
+          router.replace(`/orders/${id}`);
         } else {
           throw new Error(res.error);
         }
@@ -73,10 +117,10 @@ export default function DeliveryConfirmationPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen animate-in fade-in duration-300 bg-white">
-      <div className="p-4 bg-white border-b sticky top-0 z-10 flex items-center gap-4">
+    <div className="flex flex-col min-h-screen animate-in fade-in duration-300 bg-background text-foreground transition-colors duration-300">
+      <div className="p-4 bg-background/90 border-b border-border sticky top-0 z-10 flex items-center gap-4 backdrop-blur-md transition-colors duration-300">
         <Button variant="ghost" size="icon" asChild>
-          <Link href={`/orders/${id}?driverId=${driverId}`}>
+          <Link href={`/orders/${id}`}>
             <ArrowLeft className="w-6 h-6" />
           </Link>
         </Button>
@@ -94,16 +138,16 @@ export default function DeliveryConfirmationPage() {
 
         <div className="space-y-6">
           <div className="space-y-3">
-            <Label htmlFor="receiver_name" className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+            <Label htmlFor="receiver_name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1">
               Nombre de quien recibe
               <span className="text-destructive">*</span>
             </Label>
             <div className="relative">
-              <UserCheck className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-300" />
+              <UserCheck className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
               <Input 
                 id="receiver_name"
                 placeholder="Ej. Juan Pérez"
-                className="h-14 bg-slate-50 border-none rounded-2xl pl-12 font-bold"
+                className="h-14 bg-muted/60 border border-border rounded-2xl pl-12 font-bold text-foreground"
                 value={receiverName}
                 onChange={(e) => setReceiverName(e.target.value)}
                 required
@@ -112,7 +156,7 @@ export default function DeliveryConfirmationPage() {
           </div>
 
           <div className="space-y-3">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Observaciones de entrega</Label>
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Observaciones de entrega</Label>
             <div className="grid grid-cols-2 gap-2">
               {quickResponses.map((resp) => (
                 <button
@@ -126,7 +170,7 @@ export default function DeliveryConfirmationPage() {
                     "p-3 rounded-2xl text-left text-[11px] font-bold transition-all border-2 h-full flex items-center",
                     observations === resp && !isCustom
                       ? "bg-primary border-primary text-white shadow-lg shadow-primary/20" 
-                      : "bg-white border-slate-100 text-slate-600 hover:border-primary/20"
+                      : "bg-card border-border text-foreground/80 hover:border-primary/20"
                   )}
                 >
                   {resp}
@@ -141,8 +185,8 @@ export default function DeliveryConfirmationPage() {
                 className={cn(
                   "p-3 rounded-2xl text-left text-[11px] font-bold transition-all border-2 h-full flex items-center",
                   isCustom
-                    ? "bg-slate-900 border-slate-900 text-white"
-                    : "bg-white border-slate-100 text-slate-400"
+                    ? "bg-foreground border-foreground text-background"
+                    : "bg-card border-border text-muted-foreground"
                 )}
               >
                 Otro (Escribir detalle)
@@ -153,7 +197,7 @@ export default function DeliveryConfirmationPage() {
               <div className="animate-in slide-in-from-top-2 duration-300">
                 <Textarea 
                   placeholder="Escribe aquí las observaciones adicionales..."
-                  className="bg-slate-50 border-none rounded-2xl p-4 text-sm min-h-[100px]"
+                  className="bg-muted/60 border border-border rounded-2xl p-4 text-sm min-h-[100px] text-foreground"
                   value={observations}
                   onChange={(e) => setObservations(e.target.value)}
                 />
@@ -162,7 +206,7 @@ export default function DeliveryConfirmationPage() {
           </div>
 
           <div className="space-y-3">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Firma del Cliente</Label>
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Firma del Cliente</Label>
             <SignaturePad onCapture={setSignature} />
           </div>
         </div>
@@ -180,6 +224,63 @@ export default function DeliveryConfirmationPage() {
           )}
         </Button>
       </form>
+
+      <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
+        <DialogContent className="rounded-[2.5rem] border border-border p-6 w-[92%] max-w-[400px] bg-card text-card-foreground animate-in zoom-in-95 duration-200">
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-xl font-black flex items-center gap-2 text-primary">
+              <CheckCircle2 className="size-6" />
+              Confirmar Entrega
+            </DialogTitle>
+            <DialogDescription className="text-xs font-bold text-muted-foreground pt-2 leading-relaxed">
+              ¿Estás seguro que deseas marcar el pedido #{id} como entregado?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-3">
+            <div className="bg-muted/50 p-4 rounded-2xl border border-border space-y-2">
+              <div>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Recibe</p>
+                <p className="font-bold text-sm text-foreground">{receiverName}</p>
+              </div>
+              {observations && (
+                <div>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Observación</p>
+                  <p className="font-medium text-xs text-foreground/80 italic">{observations}</p>
+                </div>
+              )}
+              {signature && (
+                <div>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Firma</p>
+                  <p className="font-bold text-xs text-green-600">✓ Capturada</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col gap-2">
+            <Button
+              onClick={handleConfirmDelivery}
+              disabled={isPending}
+              className="w-full h-14 bg-primary text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20"
+            >
+              {isPending ? "Procesando..." : (
+                <>
+                  <CheckCircle2 className="w-5 h-5 mr-2" />
+                  Sí, Confirmar Entrega
+                </>
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setShowConfirmModal(false)}
+              className="w-full h-12 rounded-2xl font-bold text-muted-foreground"
+            >
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
