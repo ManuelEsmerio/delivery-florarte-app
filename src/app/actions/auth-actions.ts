@@ -13,7 +13,6 @@ import {
   verifyDriverSessionToken,
 } from '@/lib/auth-token';
 import {
-  appendSecurityEvent,
   checkLoginRateLimit,
   clearFailedLoginAttempts,
   getRequestSecurityContext,
@@ -74,31 +73,12 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
         retryAfterSeconds: throttle.retryAfterSeconds,
       },
     });
-
-    return {
-      error: `Acceso temporalmente bloqueado. Intenta de nuevo en ${throttle.retryAfterSeconds} segundos.`,
-    };
-  }
-
-  if (!isAllowedDriverEmail(email)) {
-    await appendSecurityEvent({
-      type: 'login_domain_denied',
-      email,
-      ipAddress: requestContext.ipAddress,
       userAgent: requestContext.userAgent,
       browser: requestContext.browser,
       route: requestContext.route,
     });
 
     return { error: "Tu correo no pertenece a un dominio autorizado." };
-  }
-
-  try {
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!user || !user.passwordHash) {
       const failed = await recordFailedLoginAttempt(email, requestContext.ipAddress);
       await appendSecurityEvent({
         type: failed.locked ? 'login_locked' : 'login_failure',
@@ -109,18 +89,6 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
         route: requestContext.route,
         metadata: {
           reason: 'user_not_found_or_missing_password',
-          retryAfterSeconds: failed.retryAfterSeconds,
-        },
-      });
-      return { error: "Credenciales inválidas." };
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-    
-    // Soporte para contraseñas legacy en texto plano si fuera necesario
-    const isPlainMatch = password === user.passwordHash;
-
-    if (!isPasswordValid && !isPlainMatch) {
       const failed = await recordFailedLoginAttempt(email, requestContext.ipAddress);
       await appendSecurityEvent({
         type: failed.locked ? 'login_locked' : 'login_failure',
@@ -131,37 +99,10 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
         browser: requestContext.browser,
         route: requestContext.route,
         metadata: {
-          reason: 'invalid_password',
-          retryAfterSeconds: failed.retryAfterSeconds,
-        },
-      });
-      return { error: "Credenciales inválidas." };
-    }
-
-    if (user.role !== 'DELIVERY' || user.isDeleted) {
-      await appendSecurityEvent({
-        type: 'auth_denied',
-        email,
-        driverId: user.id,
-        ipAddress: requestContext.ipAddress,
         userAgent: requestContext.userAgent,
         browser: requestContext.browser,
         route: requestContext.route,
         metadata: {
-          reason: 'role_or_deleted',
-          role: user.role,
-          isDeleted: user.isDeleted,
-        },
-      });
-      return { error: "Tu usuario no tiene acceso al portal de repartidores." };
-    }
-
-    await clearFailedLoginAttempts(email, requestContext.ipAddress);
-
-    const token = await createDriverSessionToken({
-      id: user.id,
-      name: user.name,
-      email: user.email,
       role: user.role,
       tokenVersion: user.tokenVersion,
     });
@@ -177,15 +118,6 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
       browser: requestContext.browser,
       route: requestContext.route,
     });
-
-    return { 
-      success: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email
-      }
-    };
   } catch (error) {
     console.error('Login Error:', error);
     await appendSecurityEvent({
@@ -196,17 +128,6 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
       browser: requestContext.browser,
       route: requestContext.route,
       metadata: {
-        reason: error instanceof Error ? error.message : 'unknown_error',
-      },
-    });
-    return { error: "Error al intentar iniciar sesión." };
-  }
-}
-
-/**
- * Cierre de sesión (limpia estado en servidor si es necesario)
- */
-export async function logoutAction() {
   const cookieStore = await cookies();
   const cookieToken = cookieStore.get(DRIVER_SESSION_COOKIE)?.value;
   const requestHeaders = await headers();
@@ -235,15 +156,6 @@ export async function logoutAction() {
           userAgent: requestContext.userAgent,
           browser: requestContext.browser,
           route: requestContext.route,
-        });
-      }
-    } catch (error) {
-      console.warn('Logout token ignored:', error);
-    }
-  }
-
-  await clearDriverSessionCookie();
-
   return { success: true };
 }
 
@@ -295,12 +207,3 @@ export async function updatePasswordAction(formData: FormData): Promise<ActionSt
       userAgent: requestContext.userAgent,
       browser: requestContext.browser,
       route: requestContext.route,
-    });
-
-    revalidatePath('/profile');
-    return { success: true };
-  } catch (error) {
-    console.error("Update Password Error:", error);
-    return { error: "No se pudo actualizar la contraseña." };
-  }
-}

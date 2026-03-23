@@ -11,7 +11,7 @@ import {
   renderFailedDeliveryAttemptTemplate,
   renderOrderStatusUpdateTemplate,
 } from '@/lib/email/order-status-template';
-import { appendSecurityEvent, getRequestSecurityContext } from '@/lib/security-audit';
+import { getRequestSecurityContext } from '@/lib/security-audit';
 
 // Configuración de Cloudinary
 cloudinary.config({
@@ -161,19 +161,6 @@ export async function reportFailedDelivery(orderId: number, comment: string) {
 
     revalidatePath('/dashboard');
 
-    await appendSecurityEvent({
-      type: 'delivery_incident',
-      driverId: session.driverId,
-      email: session.user.email,
-      ipAddress: requestContext.ipAddress,
-      userAgent: requestContext.userAgent,
-      browser: requestContext.browser,
-      route: requestContext.route,
-      metadata: {
-        orderId,
-        comment,
-      },
-    });
 
     return { success: true };
   } catch (error: any) {
@@ -287,20 +274,6 @@ export async function completeDelivery(
 
     revalidatePath('/dashboard');
 
-    await appendSecurityEvent({
-      type: 'delivery_complete',
-      driverId: session.driverId,
-      email: session.user.email,
-      ipAddress: requestContext.ipAddress,
-      userAgent: requestContext.userAgent,
-      browser: requestContext.browser,
-      route: requestContext.route,
-      metadata: {
-        orderId,
-        receiverName,
-        hasSignature: Boolean(finalSignatureUrl),
-      },
-    });
 
     if (!emailSent) {
       return {
