@@ -1,5 +1,4 @@
-
-'use server';
+"use server";
 
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
@@ -62,76 +61,14 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
 
   const throttle = await checkLoginRateLimit(email, requestContext.ipAddress);
   if (!throttle.allowed) {
-    await appendSecurityEvent({
-      type: 'login_locked',
-      email,
-      ipAddress: requestContext.ipAddress,
-      userAgent: requestContext.userAgent,
-      browser: requestContext.browser,
-      route: requestContext.route,
-      metadata: {
-        retryAfterSeconds: throttle.retryAfterSeconds,
-      },
-    });
-      userAgent: requestContext.userAgent,
-      browser: requestContext.browser,
-      route: requestContext.route,
-    });
-
-    return { error: "Tu correo no pertenece a un dominio autorizado." };
-      const failed = await recordFailedLoginAttempt(email, requestContext.ipAddress);
-      await appendSecurityEvent({
-        type: failed.locked ? 'login_locked' : 'login_failure',
-        email,
-        ipAddress: requestContext.ipAddress,
-        userAgent: requestContext.userAgent,
-        browser: requestContext.browser,
-        route: requestContext.route,
-        metadata: {
-          reason: 'user_not_found_or_missing_password',
-      const failed = await recordFailedLoginAttempt(email, requestContext.ipAddress);
-      await appendSecurityEvent({
-        type: failed.locked ? 'login_locked' : 'login_failure',
-        email,
-        driverId: user.id,
-        ipAddress: requestContext.ipAddress,
-        userAgent: requestContext.userAgent,
-        browser: requestContext.browser,
-        route: requestContext.route,
-        metadata: {
-        userAgent: requestContext.userAgent,
-        browser: requestContext.browser,
-        route: requestContext.route,
-        metadata: {
-      role: user.role,
-      tokenVersion: user.tokenVersion,
-    });
-
-    await writeDriverSessionCookie(token);
-
-    await appendSecurityEvent({
-      type: 'login_success',
-      email,
-      driverId: user.id,
-      ipAddress: requestContext.ipAddress,
-      userAgent: requestContext.userAgent,
-      browser: requestContext.browser,
-      route: requestContext.route,
-    });
-  } catch (error) {
-    console.error('Login Error:', error);
-    await appendSecurityEvent({
-      type: 'login_failure',
-      email,
-      ipAddress: requestContext.ipAddress,
-      userAgent: requestContext.userAgent,
-      browser: requestContext.browser,
-      route: requestContext.route,
-      metadata: {
+    return {
+      error: `Acceso temporalmente bloqueado. Intenta de nuevo en ${throttle.retryAfterSeconds} segundos.`,
+    };
+  }
   const cookieStore = await cookies();
   const cookieToken = cookieStore.get(DRIVER_SESSION_COOKIE)?.value;
-  const requestHeaders = await headers();
-  const requestContext = getRequestSecurityContext(requestHeaders, '/logout');
+  const requestHeadersLogout = await headers();
+  const requestContextLogout = getRequestSecurityContext(requestHeadersLogout, '/logout');
 
   if (cookieToken) {
     try {
@@ -148,14 +85,15 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
           },
         });
 
-        await appendSecurityEvent({
-          type: 'logout',
-          email: payload.email,
-          driverId,
-          ipAddress: requestContext.ipAddress,
-          userAgent: requestContext.userAgent,
-          browser: requestContext.browser,
-          route: requestContext.route,
+        // Auditoría desactivada
+      }
+    } catch (error) {
+      console.warn('Logout token ignored:', error);
+    }
+  }
+
+  await clearDriverSessionCookie();
+
   return { success: true };
 }
 
@@ -165,8 +103,8 @@ export async function loginAction(prevState: ActionState, formData: FormData): P
 export async function updatePasswordAction(formData: FormData): Promise<ActionState> {
   const oldPassword = formData.get('oldPassword') as string;
   const newPassword = formData.get('newPassword') as string;
-  const requestHeaders = await headers();
-  const requestContext = getRequestSecurityContext(requestHeaders, '/profile/password');
+  const requestHeadersPassword = await headers();
+  const requestContextPassword = getRequestSecurityContext(requestHeadersPassword, '/profile/password');
   
   try {
     const session = await requireAuthenticatedDriverFromCookies();
@@ -199,11 +137,42 @@ export async function updatePasswordAction(formData: FormData): Promise<ActionSt
 
     await clearDriverSessionCookie();
 
-    await appendSecurityEvent({
-      type: 'password_change',
-      email: user.email,
-      driverId: user.id,
-      ipAddress: requestContext.ipAddress,
-      userAgent: requestContext.userAgent,
-      browser: requestContext.browser,
-      route: requestContext.route,
+    // Auditoría desactivada
+    revalidatePath('/profile');
+    return { success: true };
+  } catch (error) {
+    console.error("Update Password Error:", error);
+    return { error: "No se pudo actualizar la contraseña." };
+  }
+}
+
+export async function logoutAction() {
+  const cookieStore = await cookies();
+  const cookieToken = cookieStore.get(DRIVER_SESSION_COOKIE)?.value;
+  const requestHeadersLogout = await headers();
+  const requestContextLogout = getRequestSecurityContext(requestHeadersLogout, '/logout');
+
+  if (cookieToken) {
+    try {
+      const payload = await verifyDriverSessionToken(cookieToken);
+      const driverId = Number(payload.driverId || payload.sub);
+
+      if (driverId) {
+        await prisma.user.update({
+          where: { id: driverId },
+          data: {
+            tokenVersion: {
+              increment: 1,
+            },
+          },
+        });
+      }
+    } catch (error) {
+      console.warn('Logout token ignored:', error);
+    }
+  }
+
+  await clearDriverSessionCookie();
+
+  return { success: true };
+}
