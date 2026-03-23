@@ -39,7 +39,11 @@ type RateLimitEntry = {
 
 type RateLimitState = Record<string, RateLimitEntry>;
 
-const SECURITY_DIR = path.join(process.cwd(), '.runtime-security');
+
+const isProd = process.env.VERCEL || process.env.NODE_ENV === 'production';
+const SECURITY_DIR = isProd
+  ? path.join('/tmp', '.runtime-security')
+  : path.join(process.cwd(), '.runtime-security');
 const AUDIT_LOG_FILE = path.join(SECURITY_DIR, 'audit.log');
 const RATE_LIMIT_FILE = path.join(SECURITY_DIR, 'login-rate-limit.json');
 
