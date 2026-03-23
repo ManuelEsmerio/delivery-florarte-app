@@ -17,7 +17,7 @@ import {
   Moon,
   Sun
 } from 'lucide-react';
-import { logoutAction, updatePasswordAction } from '@/app/actions/auth-actions';
+import { updatePasswordAction } from '@/app/actions/auth-actions';
 import { useRouter } from 'next/navigation';
 import {
   Dialog,
@@ -66,7 +66,7 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     clearDriverSession();
-    await logoutAction();
+    await fetch('/api/logout', { method: 'POST' });
     toast({ title: "Sesión cerrada", description: "Has salido correctamente del sistema." });
     router.push('/login');
   };

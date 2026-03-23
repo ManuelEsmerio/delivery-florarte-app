@@ -39,8 +39,12 @@ type RateLimitEntry = {
 
 type RateLimitState = Record<string, RateLimitEntry>;
 
-const SECURITY_DIR = path.join(process.cwd(), '.runtime-security');
-const AUDIT_LOG_FILE = path.join(SECURITY_DIR, 'audit.log');
+
+const isProd = process.env.VERCEL || process.env.NODE_ENV === 'production';
+const SECURITY_DIR = isProd
+  ? path.join('/tmp', '.runtime-security')
+  : path.join(process.cwd(), '.runtime-security');
+// const AUDIT_LOG_FILE = path.join(SECURITY_DIR, 'audit.log');
 const RATE_LIMIT_FILE = path.join(SECURITY_DIR, 'login-rate-limit.json');
 
 const EMAIL_WINDOW_MS = 15 * 60 * 1000;
@@ -136,19 +140,20 @@ export function getRequestSecurityContext(headersLike: HeadersLike, route?: stri
   };
 }
 
-export async function appendSecurityEvent(event: Omit<SecurityEvent, 'createdAt'>) {
-  try {
-    await ensureSecurityDir();
-    const payload: SecurityEvent = {
-      ...event,
-      createdAt: new Date().toISOString(),
-    };
-
-    await fs.appendFile(AUDIT_LOG_FILE, `${JSON.stringify(payload)}\n`, 'utf8');
-  } catch (error) {
-    console.error('Security audit log error:', error);
-  }
-}
+// Auditoría desactivada para evitar errores en Vercel
+// export async function appendSecurityEvent(event: Omit<SecurityEvent, 'createdAt'>) {
+//   try {
+//     await ensureSecurityDir();
+//     const payload: SecurityEvent = {
+//       ...event,
+//       createdAt: new Date().toISOString(),
+//     };
+//
+//     await fs.appendFile(AUDIT_LOG_FILE, `${JSON.stringify(payload)}\n`, 'utf8');
+//   } catch (error) {
+//     console.error('Security audit log error:', error);
+//   }
+// }
 
 export async function checkLoginRateLimit(email: string, ipAddress?: string) {
   const now = Date.now();
